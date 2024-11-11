@@ -1,14 +1,16 @@
 #pragma once
 #include "utils.h"
 
+using namespace std;
+
 class Triangle
 {
 public:
-  Triangle();
+  Triangle(vector<float> position, vector<int> colorIndices, int vertices, vector<int> elementIndices);
   void draw();
   ~Triangle();
 
 private:
-  unsigned int VAO, vertex_count;
+  unsigned int EBO, VAO, vertex_count;
   std::vector<unsigned int> VBOs;
 };

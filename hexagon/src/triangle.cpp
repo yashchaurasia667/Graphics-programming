@@ -1,14 +1,8 @@
 #include "triangle.h"
 
-Triangle::Triangle()
+Triangle::Triangle(vector<float> position, vector<int> colorIndices, int vertices, vector<int> elementIndices)
 {
-  std::vector<float> position = {
-      -1.0f, -1.0f, 0.0f,
-      1.0f, -1.0f, 0.0f,
-      0.0f, 1.0f, 0.0f};
-
-  std::vector<int> colorIndices = {0, 1, 2};
-  vertex_count = 3;
+  vertex_count = vertices;
 
   glGenVertexArrays(1, &VAO);
   glBindVertexArray(VAO);
@@ -31,16 +25,23 @@ Triangle::Triangle()
 
   glVertexAttribIPointer(1, 1, GL_INT, sizeof(int), (void *)0);
   glEnableVertexAttribArray(1);
+
+  // Element buffer
+  glGenBuffers(1, &EBO);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, elementIndices.size() * sizeof(int), elementIndices.data(), GL_STATIC_DRAW);
 }
 
 void Triangle::draw()
 {
   glBindVertexArray(VAO);
-  glDrawArrays(GL_TRIANGLES, 0, vertex_count);
+  // glDrawArrays(GL_TRIANGLES, 0, vertex_count);
+  glDrawElements(GL_TRIANGLES, vertex_count, GL_UNSIGNED_INT, 0);
 }
 
 Triangle::~Triangle()
 {
   glDeleteVertexArrays(1, &VAO);
   glDeleteBuffers(VBOs.size(), VBOs.data());
+  glDeleteBuffers(1, &EBO);
 }

@@ -1,20 +1,22 @@
 #include "utils.h"
 #include "triangle.h"
 
+using namespace std;
+
 // creating shader
-unsigned int make_module(const std::string &filepath, unsigned int module_type)
+unsigned int make_module(const string &filepath, unsigned int module_type)
 {
-  std::ifstream file;
-  std::stringstream bufferedLines;
-  std::string line;
+  ifstream file;
+  stringstream bufferedLines;
+  string line;
 
   file.open(filepath);
-  while (std::getline(file, line))
+  while (getline(file, line))
   {
     bufferedLines << line << "\n";
   }
 
-  std::string source = bufferedLines.str();
+  string source = bufferedLines.str();
   const char *shaderSrc = source.c_str();
   bufferedLines.str("");
   file.close();
@@ -30,8 +32,8 @@ unsigned int make_module(const std::string &filepath, unsigned int module_type)
   {
     char errorLog[1024];
     glGetShaderInfoLog(shaderModule, 1024, NULL, errorLog);
-    std::cout << "Failed to compile shaders \n"
-              << errorLog << std::endl;
+    cout << "Failed to compile shaders \n"
+         << errorLog << endl;
   }
   return shaderModule;
 }
@@ -39,7 +41,7 @@ unsigned int make_module(const std::string &filepath, unsigned int module_type)
 // using shader
 unsigned int make_shader(const char *vertex_filepath, const char *fragment_filepath)
 {
-  std::vector<unsigned int> modules;
+  vector<unsigned int> modules;
   modules.push_back(make_module(vertex_filepath, GL_VERTEX_SHADER));
   modules.push_back(make_module(fragment_filepath, GL_FRAGMENT_SHADER));
 
@@ -58,8 +60,8 @@ unsigned int make_shader(const char *vertex_filepath, const char *fragment_filep
   {
     char errorLog[1024];
     glGetProgramInfoLog(shader, 1024, NULL, errorLog);
-    std::cout << "Failed to link shaders\n"
-              << errorLog << std::endl;
+    cout << "Failed to link shaders\n"
+         << errorLog << endl;
   }
 
   for (unsigned int shaderModule : modules)
@@ -79,22 +81,42 @@ int main()
 
   if (initGLFW(&window) != 0)
   {
-    std::cout << "Something went wrong" << std::endl;
+    cout << "Something went wrong" << endl;
     return -1;
   }
 
   if (initGlad(&window) != 0)
   {
-    std::cout << "Couldn't initialize glad\n"
-              << std::endl;
+    cout << "Couldn't initialize glad\n"
+         << endl;
     return -1;
   }
 
-  glClearColor(0.0235f, 0.2784f, 0.1098f, 1.0f);
+  glClearColor(0.9686f, 0.8431f, 0.0196f, 1.0f);
 
   unsigned int shader = make_shader("../src/shaders/vertex.glsl", "../src/shaders/fragment.glsl");
 
-  Triangle *triangle = new Triangle();
+  vector<float> positions = {
+      0.0f, 0.0f, 0.0f,   // screen middle
+      0.0f, 0.75f, 0.0f,   // mid top
+      -0.5f, 0.30f, 0.0f,  // left top mid x, mid y
+      0.5f, 0.30f, 0.0f,   // right top mid x, mid y
+      0.5f, -0.30f, 0.0f,  // right bottom mid x, mid y
+      0.0f, -0.75f, 0.0f,  // mid bottom
+      -0.5f, -0.30f, 0.0f, // left bottom mid x, mid y
+  };
+
+  vector<int> colors = {3, 3, 3, 3, 3, 3, 3};
+  vector<int> elements = {
+      0, 1, 2,
+      0, 1, 3,
+      0, 4, 3,
+      0, 4, 5, 
+      0, 6, 5, 
+      0, 6, 2
+      };
+
+  Triangle *triangle = new Triangle(positions, colors, elements.size(), elements);
 
   while (!glfwWindowShouldClose(window))
   {
