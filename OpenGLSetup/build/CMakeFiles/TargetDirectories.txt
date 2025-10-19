@@ -1,3 +1,0 @@
-C:/Users/yashc/Documents/Stuff/coding challenges/OpenGLTutorial/OpenGLSetup/build/CMakeFiles/main.dir
-C:/Users/yashc/Documents/Stuff/coding challenges/OpenGLTutorial/OpenGLSetup/build/CMakeFiles/edit_cache.dir
-C:/Users/yashc/Documents/Stuff/coding challenges/OpenGLTutorial/OpenGLSetup/build/CMakeFiles/rebuild_cache.dir
