@@ -4,7 +4,7 @@ project(triangle)
 find_package(OpenGL REQUIRED)
 
 add_library(depends INTERFACE)
-target_sources(depends INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/../lib/glad.c")
+target_sources(depends INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/../lib/glad.c" "${CMAKE_CURRENT_SOURCE_DIR}/../lib/shader.cpp")
 target_include_directories(depends INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/../include")
 target_link_libraries(depends INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/../lib/libglfw3.a" OpenGL::GL gdi32 user32 kernel32)
 
