@@ -2,9 +2,9 @@
 
 <h3>Dependencies</h3>
 
-[CMake](https://cmake.org/download/)
-[Make](https://www.gnu.org/software/make/#download)
-A C/C++ compiler
+- [CMake](https://cmake.org/download/)
+- [Make](https://www.gnu.org/software/make/#download)
+- A C/C++ compiler, I use [MinGW](technology@curepoint.in)
 
 ### For Linux
 
@@ -60,6 +60,12 @@ int main() {
   }
   // tell opengl to use our newly created window
   glfwMakeContextCurrent(window);
+
+  // Load all openGl pointers with glad
+  if(!gladLoadGLLoader((GLADLoadProc)glfwGetProcAddress)) {
+    std::cout << "Failed to initialize GLAD" << std::endl;
+    return -1;
+  }
 
   // main loop to prevent the window from closing instantly
   while(!glfwWindowShouldClose(window)) {
@@ -284,12 +290,47 @@ int main() {
     std::cout << "Failed to load OpenGL drivers" <<  std::endl;
     return -1;
   }
+  
+  // create a shader object
+  Shader ourShader("path/to/vertex/shader", "path/to/fragment/shader");
+
+  // setup vertex data and attributes here
+  float vertices[] = {
+    // positions (x, y, z)   // colors (r, g, b)
+    -0.5f, -0.5f, 0.0f,     1.0f, 0.0f, 0.0f,
+    0.5f, -0.5f, 0.0f,      0.0f, 1.0f, 0.0f,
+    0.0f, 0.5f, 0.0f,       0.0f, 0.0f, 1.0f
+  };
+  unsigned int VBO, VAO;
+  glGenVertexArrays(1, &VAO):
+  glGenBuffers(1, &VBO);
+  glBindVertexArrays(VAO);
+
+  glBindBuffers(GL_ARRAY_BUFFER, VAO);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+  // position attribute
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6*sizeof(float), (void *)0);
+  glEnableVertexAttribArray(0);
+
+  // color attribute
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6*sizeof(float), (void *)(3 * sizeof(float)));
+  glEnableVertexAttribArray(1);
 
   while(!glfwWindowShouldClose(window)) {
     processInput();
+    glClearColor(0.2f, 0.3f, 0.2f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    ourShader.use();
+    glBindVertexArray(VAO);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+
     glfwSwapBuffers(window);
     glfwPollEvents();
   }
+  glDeleteVertexArrays(1, &VAO);
+  glDeleteBuffers(1, &VBO);
 
   glfwTerminate();
   return 0;
