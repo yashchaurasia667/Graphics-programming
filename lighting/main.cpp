@@ -5,6 +5,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <shader.h>
+#include <camera.h>
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void processInput(GLFWwindow *window);
@@ -36,6 +37,7 @@ int main()
   }
 
   Shader s("../shaders/vertex.glsl", "../shaders/fragment.glsl");
+  Camera c(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), window);
   float vertices[] = {
       // position         // color
       // FRONT
@@ -97,6 +99,7 @@ int main()
   while (!glfwWindowShouldClose(window))
   {
     processInput(window);
+    c.processMovement(window, 2.5f);
     glClearColor(0.4f, 0.4f, 0.2f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
