@@ -147,8 +147,6 @@ int main()
   }
   stbi_image_free(data);
 
-  glm::mat4 projection = glm::perspective(glm::radians(fov), 800.0f / 600.0f, 0.1f, 100.0f);
-
   while (!glfwWindowShouldClose(window))
   {
     float currentFrame = static_cast<float>(glfwGetTime());
@@ -164,6 +162,7 @@ int main()
 
     glm::mat4 model = glm::mat4(1.0f);
     glm::mat4 view = glm::mat4(1.0f);
+    glm::mat4 projection = glm::perspective(glm::radians(fov), 800.0f / 600.0f, 0.1f, 100.0f);
 
     view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
     s.setMat4("view", view);

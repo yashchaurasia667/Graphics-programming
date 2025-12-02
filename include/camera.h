@@ -1,35 +1,27 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 
 class Camera
 {
 public:
-  glm::vec3 cameraPos;
-  glm::vec3 cameraFront;
-  glm::vec3 cameraUp;
-
-  Camera(glm::vec3 cameraPos, glm::vec3 cameraFront, glm::vec3 cameraUp, GLFWwindow *window);
-  void processMovement(GLFWwindow *window, float speed, float deltaTime);
-  glm::mat4 getViewMatrix();
-  float getFov();
+  Camera(glm::vec3 pos, float fov, GLFWwindow *window, unsigned int width, unsigned int height);
+  float get_fov();
+  void mouse_callback(GLFWwindow *window, double xposIn, double yposIn, bool *firstMouse, float sensitivity);
+  void scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
+  void process_movement(GLFWwindow *window, float speed, float deltaTime);
+  glm::mat4 get_view_matrix();
 
 private:
-  bool firstMouse = true;
-  float yaw = -90.0f;
-  float pitch = 0.0f;
-  float lastX = 800.0f / 2.0f;
-  float lastY = 600.0f / 2.0f;
-  float fov = 45.0f;
-
-  static void zoomOnScroll(GLFWwindow *window, double xoffset, double yoffset);
-  static void mouse_callback(GLFWwindow *window, double xposIn, double yposIn);
-  void onMouseMove(double xpos, double ypos);
-  void zoomLogic(double xoffset, double yoffset);
+  float fov = 45.0f, yaw = -90.0f, pitch = 0.0f;
+  float lastX, lastY;
+  glm::vec3 pos = glm::vec3(0.0f);
+  glm::vec3 front = glm::vec3(0.0f, 0.0f, -1.0f);
+  glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
 };
 
 #endif
