@@ -13,7 +13,7 @@ void process_input(GLFWwindow *window);
 unsigned int SCR_WIDTH = 800, SCR_HEIGHT = 600;
 bool firstMouse = true;
 float sensitivity = 0.1, speed = 2.5;
-Camera *camera = nullptr;
+Camera camera;
 
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
@@ -39,17 +39,18 @@ int main()
     return -1;
   }
 
-  camera = new Camera(glm::vec3(0.0f), 45.0f, window, SCR_WIDTH, SCR_HEIGHT);
   glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
   glfwSetCursorPosCallback(window, mouse_callback);
   glfwSetScrollCallback(window, scroll_callback);
   glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
   glEnable(GL_DEPTH_TEST);
+  camera = Camera(glm::vec3(0.0f), 45.0f, window, SCR_WIDTH, SCR_HEIGHT);
 
   Shader cube("../shaders/cube.vs", "../shaders/cube.fs");
-  // Shader light("../shaders/light.vs", "../shaders/light.fs");
+  Shader light("../shaders/light.vs", "../shaders/light.fs");
 
   float vertices[] = {
+      // vertices          // normals
       -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
       0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
       0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
@@ -104,6 +105,14 @@ int main()
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)0);
   glEnableVertexAttribArray(0);
 
+  unsigned int lightVAO;
+  glGenVertexArrays(1, &lightVAO);
+  glBindVertexArray(lightVAO);
+
+  glBindBuffer(GL_ARRAY_BUFFER, VBO);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)0);
+  glEnableVertexAttribArray(0);
+
   while (!glfwWindowShouldClose(window))
   {
     float currentFrame = static_cast<float>(glfwGetTime());
@@ -114,19 +123,33 @@ int main()
     glClearColor(0.0f, 0.2f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    cube.use();
     glm::mat4 model = glm::mat4(1.0f);
     glm::mat4 view = glm::mat4(1.0f);
-    glm::mat4 projection = glm::perspective(glm::radians(camera->get_fov()), 800.0f / 600.0f, 0.1f, 100.0f);
-    model = glm::translate(model, glm::vec3(0.3f, 0.0f, -3.0f));
-    model = glm::scale(model, glm::vec3(0.3f, 0.3f, 0.3f));
-    view = camera->get_view_matrix();
+    glm::mat4 projection = glm::perspective(glm::radians(camera.get_fov()), 800.0f / 600.0f, 0.1f, 100.0f);
+    model = glm::translate(model, glm::vec3(0.3f, 0.0f, -1.0f));
+    model = glm::scale(model, glm::vec3(0.7f, 0.7f, 0.7f));
+    view = camera.get_view_matrix();
 
     cube.setMat4("model", model);
     cube.setMat4("view", view);
     cube.setMat4("projection", projection);
-    cube.setVec3("color", glm::vec3(1.0f, 1.0f, 1.0f));
+    cube.setVec3("color", glm::vec3(0.3f, 0.4f, 0.4f));
 
     glBindVertexArray(cubeVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+
+    light.use();
+    model = glm::mat4(1.0f);
+    projection = glm::perspective(glm::radians(camera.get_fov()), 800.0f / 600.0f, 0.1f, 100.0f);
+    model = glm::translate(model, glm::vec3(0.0f, 0.5f, -3.0f));
+    model = glm::scale(model, glm::vec3(0.3f, 0.3f, 0.3f));
+    light.setMat4("model", model);
+    light.setMat4("view", view);
+    light.setMat4("projection", projection);
+    light.setVec3("color", glm::vec3(1.0f));
+
+    glBindVertexArray(lightVAO);
     glDrawArrays(GL_TRIANGLES, 0, 36);
 
     glfwPollEvents();
@@ -148,14 +171,14 @@ void process_input(GLFWwindow *window)
 {
   if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
     glfwSetWindowShouldClose(window, true);
-  camera->process_movement(window, speed, deltaTime);
+  camera.process_movement(window, speed, deltaTime);
 }
 
 void mouse_callback(GLFWwindow *window, double xposIn, double yposIn)
 {
-  camera->mouse_callback(window, xposIn, yposIn, &firstMouse, sensitivity);
+  camera.mouse_callback(window, xposIn, yposIn, &firstMouse, sensitivity);
 }
 void scroll_callback(GLFWwindow *window, double xoffset, double yoffset)
 {
-  camera->scroll_callback(window, xoffset, yoffset);
+  camera.scroll_callback(window, xoffset, yoffset);
 }

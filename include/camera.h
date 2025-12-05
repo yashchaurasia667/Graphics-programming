@@ -9,6 +9,7 @@
 class Camera
 {
 public:
+  Camera();
   Camera(glm::vec3 pos, float fov, GLFWwindow *window, unsigned int width, unsigned int height);
   float get_fov();
   void mouse_callback(GLFWwindow *window, double xposIn, double yposIn, bool *firstMouse, float sensitivity);
@@ -19,9 +20,9 @@ public:
 private:
   float fov = 45.0f, yaw = -90.0f, pitch = 0.0f;
   float lastX, lastY;
-  glm::vec3 pos = glm::vec3(0.0f);
-  glm::vec3 front = glm::vec3(0.0f, 0.0f, -1.0f);
-  glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+  glm::vec3 pos;
+  glm::vec3 front;
+  glm::vec3 up;
 };
 
 #endif
