@@ -104,6 +104,8 @@ int main()
 
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)0);
   glEnableVertexAttribArray(0);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)(3 * sizeof(float)));
+  glEnableVertexAttribArray(1);
 
   unsigned int lightVAO;
   glGenVertexArrays(1, &lightVAO);
@@ -134,7 +136,9 @@ int main()
     cube.setMat4("model", model);
     cube.setMat4("view", view);
     cube.setMat4("projection", projection);
-    cube.setVec3("color", glm::vec3(0.3f, 0.4f, 0.4f));
+    cube.setVec3("objectColor", glm::vec3(0.3f, 0.4f, 0.4f));
+    cube.setVec3("lightColor", glm::vec3(1.0f));
+    cube.setVec3("lightPos", camera.get_pos());
 
     glBindVertexArray(cubeVAO);
     glDrawArrays(GL_TRIANGLES, 0, 36);
