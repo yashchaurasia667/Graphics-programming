@@ -1,11 +1,25 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 
+#include <shader.h>
+#include <camera.h>
+
 const unsigned int SCR_WIDTH = 800, SCR_HEIGHT = 600;
+bool firstMouse = true;
+float sensitivity = 0.1f, speed = 2.5f;
+Camera camera;
+
+float deltaTime = 0.0f;
+float lastFrame = 0.0f;
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void process_input(GLFWwindow *window);
+void mouse_callback(GLFWwindow *window, double xpos, double ypos);
+void scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
 
 int main()
 {
@@ -22,8 +36,6 @@ int main()
     return -1;
   }
   glfwMakeContextCurrent(window);
-  glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-
   if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
   {
     std::cout << "Failed to load OpenGL function pointers" << std::endl;
@@ -31,67 +43,90 @@ int main()
     return -1;
   }
 
+  glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+  glfwSetCursorPosCallback(window, mouse_callback);
+  glfwSetScrollCallback(window, scroll_callback);
+  glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+  glEnable(GL_DEPTH_TEST);
+
+  Shader cube("../shaders/cube.vs", "../shaders/cube.fs");
+  camera = Camera(glm::vec3(0.0f), 45.0f, window, SCR_WIDTH, SCR_HEIGHT);
   float vertices[] = {
-      // vertices          // normals
-      -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
-      0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
-      0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
-      0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
-      -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
-      -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
+      // front face
+      -0.5f, -0.5f, 0.5f,
+      0.5f, -0.5f, 0.5f,
+      -0.5f, 0.5f, 0.5f,
+      0.5f, 0.5f, 0.5f,
+      // back face
+      -0.5f, -0.5f, -0.5f,
+      0.5f, -0.5f, -0.5f,
+      -0.5f, 0.5f, -0.5f,
+      0.5f, 0.5f, -0.5f};
 
-      -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
-      0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
-      0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
-      0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
-      -0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
-      -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
+  unsigned int indices[] = {
+      // front
+      0, 1, 2,
+      1, 3, 2,
+      // back
+      4, 5, 6,
+      5, 7, 6,
+      // right
+      1, 5, 3,
+      5, 7, 3,
+      // left
+      0, 4, 2,
+      4, 6, 2,
+      // top
+      2, 3, 7,
+      7, 6, 2,
+      // bottom
+      0, 1, 5,
+      0, 5, 4};
 
-      -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f,
-      -0.5f, 0.5f, -0.5f, -1.0f, 0.0f, 0.0f,
-      -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f,
-      -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f,
-      -0.5f, -0.5f, 0.5f, -1.0f, 0.0f, 0.0f,
-      -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f,
-
-      0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
-      0.5f, 0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
-      0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
-      0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
-      0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
-      0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
-
-      -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f,
-      0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f,
-      0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f,
-      0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f,
-      -0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f,
-      -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f,
-
-      -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
-      0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
-      0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
-      0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
-      -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
-      -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f};
-
-  GLuint cubeVAO, lightVAO, VBO;
-  glGenVertexArrays(1, &cubeVAO);
-  // glBindVertexArray(VAO);
-
+  GLuint VAO, VBO, EBO;
+  glGenVertexArrays(1, &VAO);
   glGenBuffers(1, &VBO);
+  glGenBuffers(1, &EBO);
+  glBindVertexArray(VAO);
+
   glBindBuffer(GL_ARRAY_BUFFER, VBO);
   glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-  glBindVertexArray(cubeVAO);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3, (void *)0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
   glEnableVertexAttribArray(0);
+
+  glBindVertexArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
 
   while (!glfwWindowShouldClose(window))
   {
+    float currentFrame = glfwGetTime();
+    deltaTime = currentFrame - lastFrame;
+    lastFrame = currentFrame;
+
     process_input(window);
     glClearColor(0.0f, 0.2f, 0.3f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    cube.use();
+    glm::mat4 model = glm::mat4(1.0f);
+    glm::mat4 view = camera.get_view_matrix();
+    glm::mat4 projection = glm::perspective(camera.get_fov(), 800.0f / 600.0f, 0.1f, 100.0f);
+
+    model = glm::translate(model, glm::vec3(0.0f, 0.0f, -3.0f));
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+    cube.setVec3("cubeColor", glm::vec3(1.0f, 1.0f, 0.5f));
+    cube.setMat4("model", model);
+    cube.setMat4("view", view);
+    cube.setMat4("projection", projection);
+
+    glBindVertexArray(VAO);
+    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
     glfwPollEvents();
     glfwSwapBuffers(window);
   }
@@ -109,4 +144,15 @@ void process_input(GLFWwindow *window)
 {
   if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
     glfwSetWindowShouldClose(window, true);
+  camera.process_movement(window, speed, deltaTime);
+}
+
+void mouse_callback(GLFWwindow *window, double xpos, double ypos)
+{
+  camera.mouse_callback(window, xpos, ypos, &firstMouse, sensitivity);
+}
+
+void scroll_callback(GLFWwindow *window, double xoffset, double yoffset)
+{
+  camera.scroll_callback(window, xoffset, yoffset);
 }
