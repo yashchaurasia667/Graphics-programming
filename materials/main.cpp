@@ -13,7 +13,7 @@ bool firstMouse = true;
 float sensitivity = 0.1f, speed = 2.5f;
 Camera camera;
 
-glm::vec3 lightpos = glm::vec3(0.0f, 1.3f, -3.0f);
+glm::vec3 lightpos = glm::vec3(1.0f, 0.3f, -3.0f);
 
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
@@ -144,8 +144,26 @@ int main()
 
     cube.setVec3("cubeColor", glm::vec3(1.0f, 1.0f, 0.5f));
     cube.setVec3("lightColor", glm::vec3(1.0f));
-    cube.setVec3("lightPos",lightpos);
     cube.setVec3("viewPos", camera.get_pos());
+
+    glm::vec3 lightColor;
+    lightColor.x = sin(glfwGetTime() * 2.0f);
+    lightColor.y = sin(glfwGetTime() * 0.7f);
+    lightColor.z = sin(glfwGetTime() * 1.3f);
+
+    glm::vec3 diffuseColor = lightColor * glm::vec3(0.5f);
+    glm::vec3 ambientColor = diffuseColor * glm::vec3(0.2f);
+
+    cube.setVec3("light.ambient", ambientColor);
+    cube.setVec3("light.diffuse", diffuseColor);
+    cube.setVec3("light.specular", glm::vec3(1.0f, 1.0f, 1.0f));
+    cube.setVec3("light.position", lightpos);
+
+    cube.setVec3("material.ambient", glm::vec3(1.0f, 0.5f, 0.31f));
+    cube.setVec3("material.diffuse", glm::vec3(1.0f, 0.5f, 0.31f));
+    cube.setVec3("material.specular", glm::vec3(0.5f, 0.5f, 0.5f));
+    cube.setFloat("material.shininess", 32.0f);
+
     cube.setMat4("model", model);
     cube.setMat4("view", view);
     cube.setMat4("projection", projection);
@@ -159,7 +177,7 @@ int main()
 
     model = glm::mat4(1.0f);
     model = glm::translate(model, lightpos);
-    model = glm::scale(model, glm::vec3(0.05f));
+    model = glm::scale(model, glm::vec3(0.1f));
 
     light.setVec3("cubeColor", glm::vec3(1.0f));
     light.setMat4("model", model);
