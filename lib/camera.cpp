@@ -29,7 +29,7 @@ void Camera::mouse_callback(GLFWwindow *window, double xposIn, double yposIn, bo
 
   if (*firstMouse)
   {
-    std::cout << "first mouse" << std::endl;
+    // std::cout << "first mouse" << std::endl;
     lastX = xpos;
     lastY = ypos;
     *firstMouse = false;
@@ -100,4 +100,8 @@ glm::mat4 Camera::get_view_matrix()
 
 glm::vec3 Camera::get_pos() {
   return this->pos;
+}
+
+glm::vec3 Camera::get_front() {
+  return this->front;
 }

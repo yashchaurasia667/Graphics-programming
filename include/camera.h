@@ -17,6 +17,7 @@ public:
   void process_movement(GLFWwindow *window, float speed, float deltaTime);
   glm::mat4 get_view_matrix();
   glm::vec3 get_pos();
+  glm::vec3 get_front();
 
 private:
   float fov = 45.0f, yaw = -90.0f, pitch = 0.0f;
