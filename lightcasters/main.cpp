@@ -225,9 +225,10 @@ int main()
     // cube.setVec3("light.position", lightpos);
 
     // set for spotlight
-    cube.setVec3("light.position",  camera.get_pos());
+    cube.setVec3("light.position", camera.get_pos());
     cube.setVec3("light.direction", camera.get_front());
-    cube.setFloat("light.cutOff",   glm::cos(glm::radians(12.5f)));
+    cube.setFloat("light.outerCutOff", glm::cos(glm::radians(17.5f)));
+    cube.setFloat("light.cutOff", glm::cos(glm::radians(12.5f)));
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, diffuse_map);
