@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include <glad/glad.h>
-#include "utils.h"
+#include <utils.h>
 
 struct VertexBufferElement
 {
@@ -36,34 +36,7 @@ public:
   VertexBufferLayout() : stride(0) {};
 
   template <typename T>
-  void Push(int count)
-  {
-    static_assert(false);
-  }
-
-  template <>
-  void Push<float>(int count)
-  {
-    struct VertexBufferElement v = {GL_FLOAT, count, GL_FALSE};
-    elements.push_back(v);
-    stride += VertexBufferElement::getSizeOfType(GL_FLOAT);
-  }
-
-  template <>
-  void Push<unsigned int>(int count)
-  {
-    struct VertexBufferElement v = {GL_UNSIGNED_INT, count, GL_FALSE};
-    elements.push_back(v);
-    stride += VertexBufferElement::getSizeOfType(GL_UNSIGNED_INT);
-  }
-
-  template <>
-  void Push<unsigned char>(int count)
-  {
-    struct VertexBufferElement v = {GL_UNSIGNED_BYTE, count, GL_TRUE};
-    elements.push_back(v);
-    stride += VertexBufferElement::getSizeOfType(GL_UNSIGNED_BYTE);
-  }
+  void push(unsigned int count);
 
   inline const std::vector<VertexBufferElement> *getElements() const { return &elements; }
   inline unsigned int getStride() const { return stride; }

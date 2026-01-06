@@ -22,8 +22,8 @@ void VertexArray::addBuffer(const VertexBuffer &vb, const VertexBufferLayout &la
   for (unsigned int i = 0; i < elements->size(); i++)
   {
     const auto element = (*elements)[i];
-    GLcall(glVertexAttribPointer(i, element.count, element.type, element.normalized, layout.getStride(), (void *)offset));
-    GLcall(glEnableVertexAttribArray(0));
+    GLcall(glVertexAttribPointer(i, element.count, element.type, element.normalized, layout.getStride(), (void *)(uintptr_t)offset));
+    GLcall(glEnableVertexAttribArray(i));
     offset += element.count * VertexBufferElement::getSizeOfType(element.type);
   }
 }

@@ -6,6 +6,8 @@
 #include <shader.h>
 #include <camera.h>
 #include <vertexBuffer.h>
+#include <vertexArray.h>
+#include <vertexBufferLayout.h>
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void mouse_callback(GLFWwindow *window, double xposIn, double yposIn);
@@ -96,19 +98,18 @@ int main()
         -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
         -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f};
 
-    unsigned int cubeVAO;
-    glGenVertexArrays(1, &cubeVAO);
-    // glGenBuffers(1, &VBO);
+    VertexArray cubeVAO;
+    VertexBuffer VBO(vertices, 6 * 6 * 6, GL_STATIC_DRAW);
+    VertexBufferLayout layout;
 
-    // glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    // glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    VertexBuffer VBO = VertexBuffer(vertices, 6 * 6 * 6, GL_STATIC_DRAW);
-    glBindVertexArray(cubeVAO);
+    layout.push<float>(3);
+    layout.push<float>(3);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
+    cubeVAO.addBuffer(VBO, layout);
+    // glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)0);
+    // glEnableVertexAttribArray(0);
+    // glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)(3 * sizeof(float)));
+    // glEnableVertexAttribArray(1);
 
     unsigned int lightVAO;
     glGenVertexArrays(1, &lightVAO);
@@ -144,7 +145,8 @@ int main()
       cube.setVec3("lightColor", glm::vec3(1.0f));
       cube.setVec3("lightPos", camera.get_pos());
 
-      glBindVertexArray(cubeVAO);
+      // glBindVertexArray(cubeVAO);
+      cubeVAO.bind();
       glDrawArrays(GL_TRIANGLES, 0, 36);
 
       light.use();
@@ -163,7 +165,7 @@ int main()
       glfwPollEvents();
       glfwSwapBuffers(window);
     }
-    glDeleteVertexArrays(1, &cubeVAO);
+    // glDeleteVertexArrays(1, &cubeVAO);
     // glDeleteBuffers(1, &VBO);
   }
   glfwTerminate();
