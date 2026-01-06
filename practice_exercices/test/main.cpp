@@ -1,9 +1,11 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
+#include <iostream>
+
 #include <shader.h>
 #include <camera.h>
-#include <iostream>
+#include <vbuffer.h>
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void mouse_callback(GLFWwindow *window, double xposIn, double yposIn);
@@ -93,13 +95,13 @@ int main()
       -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
       -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f};
 
-  unsigned int cubeVAO, VBO;
+  unsigned int cubeVAO;
   glGenVertexArrays(1, &cubeVAO);
-  glGenBuffers(1, &VBO);
+  // glGenBuffers(1, &VBO);
 
-  glBindBuffer(GL_ARRAY_BUFFER, VBO);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
+  // glBindBuffer(GL_ARRAY_BUFFER, VBO);
+  // glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+  VBuffer VBO = VBuffer(vertices, 6 * 6 * 6, GL_STATIC_DRAW);
   glBindVertexArray(cubeVAO);
 
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)0);
@@ -111,7 +113,8 @@ int main()
   glGenVertexArrays(1, &lightVAO);
   glBindVertexArray(lightVAO);
 
-  glBindBuffer(GL_ARRAY_BUFFER, VBO);
+  // glBindBuffer(GL_ARRAY_BUFFER, VBO);
+  VBO.bind();
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)0);
   glEnableVertexAttribArray(0);
 
@@ -160,7 +163,8 @@ int main()
     glfwSwapBuffers(window);
   }
   glDeleteVertexArrays(1, &cubeVAO);
-  glDeleteBuffers(1, &VBO);
+  // glDeleteBuffers(1, &VBO);
+  VBO.~VBuffer();
   glfwTerminate();
 
   return 0;
