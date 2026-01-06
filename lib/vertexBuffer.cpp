@@ -1,34 +1,34 @@
-#include "VBuffer.h"
+#include "vertexBuffer.h"
 #include <utils.h>
 
-VBuffer::VBuffer()
+VertexBuffer::VertexBuffer()
 {
   this->ID = 0;
   GLcall(glGenBuffers(1, &this->ID));
   GLcall(glBindBuffer(GL_ARRAY_BUFFER, ID));
 }
 
-VBuffer::VBuffer(const float *data, unsigned int count, GLenum usage) : VBuffer()
+VertexBuffer::VertexBuffer(const float *data, unsigned int count, GLenum usage) : VertexBuffer()
 {
   GLcall(glBufferData(GL_ARRAY_BUFFER, count * sizeof(float), data, usage));
 }
 
-void VBuffer::setData(const float *data, unsigned int count, GLenum usage)
+void VertexBuffer::setData(const float *data, unsigned int count, GLenum usage)
 {
   GLcall(glBufferData(GL_ARRAY_BUFFER, count * sizeof(float), data, usage));
 }
 
-void VBuffer::bind() const
+void VertexBuffer::bind() const
 {
   glBindBuffer(GL_ARRAY_BUFFER, this->ID);
 }
 
-void VBuffer::unbind() const
+void VertexBuffer::unbind() const
 {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-VBuffer::~VBuffer()
+VertexBuffer::~VertexBuffer()
 {
   GLcall(glDeleteBuffers(1, &this->ID));
 }
