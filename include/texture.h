@@ -8,6 +8,7 @@ private:
 public:
   unsigned int ID;
   Texture(const char *path);
+  Texture(const char *path, unsigned int wrap_param);
   ~Texture();
 
   void bind();
