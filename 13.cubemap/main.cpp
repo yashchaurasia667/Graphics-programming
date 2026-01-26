@@ -106,8 +106,55 @@ int main()
       1.0f, -1.0f, -1.0f,
       -1.0f, -1.0f, 1.0f,
       1.0f, -1.0f, 1.0f};
+
+  float cubeVertices[] = {
+      // positions          // normals           // texture coords
+      -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
+      0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f,
+      0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,
+      0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,
+      -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f,
+      -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
+
+      -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+      0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f,
+      0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+      0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+      -0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
+      -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+
+      -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+      -0.5f, 0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+      -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+      -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+      -0.5f, -0.5f, 0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+      -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+
+      0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+      0.5f, 0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+      0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+      0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+      0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+      0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+
+      -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f,
+      0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f,
+      0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+      0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+      -0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+      -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f,
+
+      -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+      0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+      0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,
+      0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,
+      -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+      -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f};
+
   {
     Shader def("../shaders/cubemaps.vs", "../shaders/cubemaps.fs");
+    Shader cube("../shaders/default.vs", "../shaders/default.fs");
+
     VertexArray skyboxVao;
     VertexBuffer vbo(skyboxVertices, 36 * 3, GL_STATIC_DRAW);
     VertexBufferLayout layout;
@@ -122,8 +169,16 @@ int main()
     textures_faces.push_back("../../resources/skybox/bottom.jpg");
     textures_faces.push_back("../../resources/skybox/front.jpg");
     textures_faces.push_back("../../resources/skybox/back.jpg");
-
     unsigned int cubemapTex = loadCubemap(textures_faces);
+
+    VertexArray cubeVao;
+    VertexBuffer cubeVbo(cubeVertices, 36 * 8, GL_STATIC_DRAW);
+    VertexBufferLayout cubeLayout;
+
+    cubeLayout.push<float>(3);
+    cubeLayout.push<float>(3);
+    cubeLayout.push<float>(2);
+    cubeVao.addBuffer(cubeVbo, cubeLayout);
 
     while (!glfwWindowShouldClose(window))
     {
@@ -137,15 +192,35 @@ int main()
       glClearColor(0.5f, 0.3f, 0.2f, 1.0f);
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-      glDepthMask(GL_FALSE);
+      glm::mat4 model = glm::mat4(1.0f);
+      glm::mat4 view = camera.get_view_matrix();
+      glm::mat4 projection = glm::perspective(camera.get_fov(), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+
+      model = glm::scale(model, glm::vec3(0.5f));
+      cube.use();
+      cube.setMat4("model", model);
+      cube.setMat4("view", view);
+      cube.setMat4("projection", projection);
+      cube.setVec3("cameraPos", camera.get_pos());
+
+      cubeVao.bind();
+      GLcall(glActiveTexture(GL_TEXTURE0));
+      GLcall(glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTex));
+      cube.setInt("skybox", 0);
+      GLcall(glDrawArrays(GL_TRIANGLES, 0, 36));
+
+      // glDepthMask(GL_FALSE);
+      GLcall(glDepthFunc(GL_LEQUAL));
       def.use();
-      def.setMat4("view", glm::mat4(glm::mat3(camera.get_view_matrix())));
-      def.setMat4("projection", glm::perspective(camera.get_fov(), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f));
+      def.setMat4("view", glm::mat4(glm::mat3(view)));
+      def.setMat4("projection", projection);
 
       skyboxVao.bind();
+      GLcall(glActiveTexture(GL_TEXTURE0));
       GLcall(glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTex));
       glDrawArrays(GL_TRIANGLES, 0, 36);
-      glDepthMask(GL_TRUE);
+      // glDepthMask(GL_TRUE);
+      glDepthFunc(GL_LESS);
 
       glfwSwapBuffers(window);
     }
