@@ -34,8 +34,6 @@ Shader::Shader(const char *vertexPath, const char *fragmentPath)
 
   // COMPILE SHADERS
   unsigned int vertex, fragment;
-  int success;
-  char infoLog[512];
 
   // vertex shader
   vertex = glCreateShader(GL_VERTEX_SHADER);
