@@ -1,3 +1,4 @@
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -15,6 +16,10 @@
 #include <vertexArray.h>
 #include <vertexBuffer.h>
 #include <vertexBufferLayout.h>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 
 unsigned int SCR_WIDTH = 1280, SCR_HEIGHT = 720;
 

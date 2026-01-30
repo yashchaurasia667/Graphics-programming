@@ -16,6 +16,7 @@ class Shader
 public:
   unsigned int ID;
   Shader(const char *vertexPath, const char *fragPath);
+  void addGeometryShader(const char *geometryPath);
   // use the shader
   void use();
   // utility uniform functions
@@ -26,6 +27,7 @@ public:
   void setVec3(const std::string &name, glm::vec3 value) const;
 
 private:
+  std::string getShaderSource(const char *path);
   void checkCompileErrors(unsigned int shader, std::string type);
 };
 

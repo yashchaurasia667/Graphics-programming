@@ -2,35 +2,10 @@
 
 Shader::Shader(const char *vertexPath, const char *fragmentPath)
 {
-  std::string vertexCode;
-  std::string fragmentCode;
-  std::ifstream vShaderFile;
-  std::ifstream fShaderFile;
-
-  vShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-  fShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-  try
-  {
-    // open shader files
-    vShaderFile.open(vertexPath);
-    fShaderFile.open(fragmentPath);
-    std::stringstream vShaderStream, fShaderStream;
-    // read file's buffer contents into stream
-    vShaderStream << vShaderFile.rdbuf();
-    fShaderStream << fShaderFile.rdbuf();
-    // close shader files
-    vShaderFile.close();
-    fShaderFile.close();
-    // convert stream into c string
-    vertexCode = vShaderStream.str();
-    fragmentCode = fShaderStream.str();
-  }
-  catch (std::ifstream::failure e)
-  {
-    std::cout << "ERROR::SHADER::FILE_NOT_SUCCESSFULLY_READ" << std::endl;
-  }
-  const char *vShaderCode = vertexCode.c_str();
-  const char *fShaderCode = fragmentCode.c_str();
+  std::string vertexSource = getShaderSource(vertexPath);
+  std::string fragmentSource = getShaderSource(fragmentPath);
+  const char *vShaderCode = vertexSource.c_str();
+  const char *fShaderCode = fragmentSource.c_str();
 
   // COMPILE SHADERS
   unsigned int vertex, fragment;
@@ -58,6 +33,24 @@ Shader::Shader(const char *vertexPath, const char *fragmentPath)
   glDeleteShader(fragment);
 }
 
+void Shader::addGeometryShader(const char *geometryPath)
+{
+  std::string geometrySource = getShaderSource(geometryPath);
+  const char *gShaderCode = geometrySource.c_str();
+  unsigned int geometry;
+
+  geometry = glCreateShader(GL_GEOMETRY_SHADER);
+  glShaderSource(geometry, 1, &gShaderCode, NULL);
+  glCompileShader(geometry);
+  checkCompileErrors(geometry, "GEOMETRY");
+
+  glAttachShader(ID, geometry);
+  glLinkProgram(ID);
+  checkCompileErrors(ID, "PROGRAM");
+
+  glDeleteShader(geometry);
+}
+
 void Shader::use()
 {
   glUseProgram(ID);
@@ -83,6 +76,24 @@ void Shader::setVec3(const std::string &name, glm::vec3 value) const
 {
   glUniform3fv(glGetUniformLocation(ID, name.c_str()), 1, glm::value_ptr(value));
 }
+
+std::string Shader::getShaderSource(const char *path)
+{
+  std::ifstream shader_file(path);
+  if (!shader_file)
+  {
+    std::cout << "ERROR::SHADER::" << path << "::NOT SUCCESSFULLY READ" << std::endl;
+    return "";
+  }
+
+  std::cout << "Successfully read shader: " << path << std::endl;
+  std::stringstream buffer;
+  buffer << shader_file.rdbuf();
+  std::string source = buffer.str();
+  std::cout << "Shader source length: " << source.length() << std::endl;
+  return source;
+}
+
 void Shader::checkCompileErrors(unsigned int shader, std::string type)
 {
   int success;
