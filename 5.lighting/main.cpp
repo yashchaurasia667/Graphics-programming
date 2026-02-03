@@ -23,7 +23,7 @@ float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
 // lighting
-glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
+glm::vec3 lightPos(0.0f, 0.8f, -1.0f);
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void process_input(GLFWwindow *window);
@@ -146,10 +146,10 @@ int main()
     lightingShader.setVec3("viewPos", cameraPos);
 
     glm::mat4 model = glm::mat4(1.0f);
-    glm::mat4 view = glm::mat4(1.0f);
+    model = glm::translate(model, glm::vec3(0.0f, 0.0f, -1.0f));
+    // model = glm::scale(model, glm::vec3(0.2f));
 
-    model = glm::translate(model, glm::vec3(0.0f, 0.0f, -3.0f));
-    view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+    glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
     glm::mat4 projection = glm::perspective(glm::radians(fov), 800.0f / 600.0f, 0.1f, 100.0f);
 
     lightingShader.setMat4("model", model);
@@ -166,7 +166,7 @@ int main()
 
     model = glm::mat4(1.0f);
     model = glm::translate(model, lightPos);
-    model = glm::scale(model, glm::vec3(0.6f));
+    model = glm::scale(model, glm::vec3(0.1f));
     lightCubeShader.setMat4("model", model);
 
     // lightCubeShader.setVec3("objectColor", glm::vec3(1.0f, 0.5f, 0.31f));
