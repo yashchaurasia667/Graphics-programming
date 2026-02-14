@@ -99,39 +99,6 @@ int main()
 
       glfwSwapBuffers(window);
       glfwPollEvents();
-
-      // float curr_frame = glfwGetTime();
-      // delta_time = curr_frame - last_frame;
-      // last_frame = curr_frame;
-
-      // glfwPollEvents();
-      // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-      // processInput(window);
-
-      // glm::mat4 model = glm::mat4(1.0f);
-      // glm::mat4 view = camera.get_view_matrix();
-      // glm::mat4 projection = glm::perspective(camera.get_fov(), (float)scr_width / (float)scr_height, 0.1f, 100.0f);
-
-      // shader.use();
-      // shader.setMat4("model", model);
-      // shader.setMat4("view", view);
-      // shader.setMat4("projection", projection);
-      // shader.setVec3("viewPos", camera.get_pos());
-      // shader.setVec3("lightPos", lightPos);
-
-      // glActiveTexture(GL_TEXTURE0);
-      // diffuse_map.bind();
-      // glActiveTexture(GL_TEXTURE1);
-      // normal_map.bind();
-
-      // glDrawArrays(GL_TRIANGLES, 0, 36);
-
-      // model = glm::mat4(1.0f);
-      // model = glm::translate(model, lightPos);
-      // model = glm::scale(model, glm::vec3(0.1f));
-      // shader.setMat4("model", model);
-
-      // glfwSwapBuffers(window);
     }
   }
 
@@ -225,6 +192,7 @@ void renderQuad()
         pos1.x, pos1.y, pos1.z, nm.x, nm.y, nm.z, uv1.x, uv1.y, tangent2.x, tangent2.y, tangent2.z, bitangent2.x, bitangent2.y, bitangent2.z,
         pos3.x, pos3.y, pos3.z, nm.x, nm.y, nm.z, uv3.x, uv3.y, tangent2.x, tangent2.y, tangent2.z, bitangent2.x, bitangent2.y, bitangent2.z,
         pos4.x, pos4.y, pos4.z, nm.x, nm.y, nm.z, uv4.x, uv4.y, tangent2.x, tangent2.y, tangent2.z, bitangent2.x, bitangent2.y, bitangent2.z};
+
     // configure plane VAO
     glGenVertexArrays(1, &quadVAO);
     glGenBuffers(1, &quadVBO);
