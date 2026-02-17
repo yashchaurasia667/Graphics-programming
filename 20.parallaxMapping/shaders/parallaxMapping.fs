@@ -18,9 +18,30 @@ uniform float height_scale;
 
 vec2 parallaxMapping(vec2 texCoords, vec3 viewDir)
 { 
-  float height =  texture(texture_displacement, texCoords).r;    
-  vec2 p = viewDir.xy / viewDir.z * (height * height_scale);
-  return texCoords - p;    
+  const float minLayers = 8.0;
+  const float maxLayers = 32.0;
+  float numLayers = mix(maxLayers, minLayers, max(dot(vec3(0.0, 0.0, 1.0), viewDir), 0.0));
+  float layerDepth = 1.0 / numLayers;
+  float currentLayerDepth = 0.0;
+  
+  vec2 P = viewDir.xy * height_scale;
+  vec2 deltaTexCoords = P / numLayers;
+
+  vec2 currentTexCoords = texCoords;
+  float currentDepthMapValue = texture(texture_displacement, currentTexCoords).r;
+  while(currentLayerDepth < currentDepthMapValue)
+  {
+    currentTexCoords-= deltaTexCoords;
+    currentDepthMapValue = texture(texture_displacement, currentTexCoords).r;
+    currentLayerDepth += layerDepth;
+  }
+
+  vec2 prevTexCoords = currentTexCoords + deltaTexCoords;
+  float afterDepth = currentDepthMapValue- currentLayerDepth;
+  float beforeDepth = texture(texture_displacement, prevTexCoords).r- currentLayerDepth + layerDepth;
+  float weight = afterDepth / (afterDepth- beforeDepth);
+  vec2 finalTexCoords = prevTexCoords * weight + currentTexCoords * (1.0 - weight);
+  return finalTexCoords;
 } 
 
 void main() {
