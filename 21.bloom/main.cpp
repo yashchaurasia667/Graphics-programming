@@ -83,15 +83,15 @@ int main()
 
   // build and compile shaders
   // -------------------------
-  Shader shader("7.bloom.vs", "7.bloom.fs");
-  Shader shaderLight("7.bloom.vs", "7.light_box.fs");
-  Shader shaderBlur("7.blur.vs", "7.blur.fs");
-  Shader shaderBloomFinal("7.bloom_final.vs", "7.bloom_final.fs");
+  Shader shader("../shaders/bloom.vs", "../shaders/bloom.fs");
+  Shader shaderLight("../shaders/bloom.vs", "../shaders/light_box.fs");
+  Shader shaderBlur("../shaders/blur.vs", "../shaders/blur.fs");
+  Shader shaderBloomFinal("../shaders/bloom_final.vs", "../shaders/bloom_final.fs");
 
   // load textures
   // -------------
-  unsigned int woodTexture = loadTexture("resources/textures/wood.png", true);
-  unsigned int containerTexture = loadTexture("resources/textures/container2.png", true);
+  unsigned int woodTexture = loadTexture("../../assets/marble.png", true);
+  unsigned int containerTexture = loadTexture("../../assets/container2.png", true);
 
   // configure (floating point) framebuffers
   // ---------------------------------------
