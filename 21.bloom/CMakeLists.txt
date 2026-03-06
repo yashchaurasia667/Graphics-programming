@@ -1,15 +1,20 @@
 cmake_minimum_required(VERSION 3.21)
-project(bloom LANGUAGES C CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+project(bloom LANGUAGES C CXX)
 find_package(OpenGL REQUIRED)
 
-set(INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/../include")
-set(LIB     "${CMAKE_CURRENT_SOURCE_DIR}/../lib")
-set(SRC     "${CMAKE_CURRENT_SOURCE_DIR}")
+set(USR_INCLUDE "/usr/local/include/")
+set(USR_SRC "/usr/local/src")
+set(USR_LIB "/usr/local/lib")
+set(INCLUDE     "${CMAKE_CURRENT_SOURCE_DIR}/../include")
+set(LIB         "${CMAKE_CURRENT_SOURCE_DIR}/../lib")
+set(SRC         "${CMAKE_CURRENT_SOURCE_DIR}")
 
 # ---- Library with actual compiled code ----
 add_library(depends STATIC
-  "${LIB}/glad.c"
+  "${USR_SRC}/glad.c"
   "${LIB}/shader.cpp"
   "${LIB}/vertexBuffer.cpp"
   "${LIB}/vertexBufferLayout.cpp"
@@ -24,6 +29,7 @@ add_library(depends STATIC
 
 target_include_directories(depends
   PUBLIC
+    "${USR_INCLUDE}"
     "${INCLUDE}"
 )
 
@@ -36,12 +42,10 @@ target_compile_options(depends
 target_link_libraries(depends
   PUBLIC
     OpenGL::GL
-    "${LIB}/libglfw3.a"
-    "${LIB}/libassimp.a"
-    "${LIB}/libzlibstatic.a"
-    kernel32
-    user32
-    gdi32
+    "${USR_LIB}/libglfw3.a"
+    "${USR_LIB}/libassimp.a"
+    dl z pthread
+    X11 Xrandr Xi
 )
 
 # ---- Executable ----
