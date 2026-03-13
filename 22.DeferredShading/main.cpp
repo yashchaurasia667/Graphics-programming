@@ -180,7 +180,8 @@ int main()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     // 2. Lighting pass
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glDisable(GL_DEPTH_TEST);
+
     lightingPassShader.use();
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, gPos);
@@ -207,22 +208,25 @@ int main()
       lightingPassShader.setFloat("lights[" + std::to_string(i) + "].Quadratic", quadratic);
     }
     lightingPassShader.setVec3("viewPos", camera.get_pos());
+
     renderQuad();
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    // glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
     glBlitFramebuffer(0, 0, scr_width, scr_height, 0, 0, scr_width, scr_height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glEnable(GL_DEPTH_TEST);
 
     lightBoxShader.use();
     lightBoxShader.setMat4("projection", projection);
-    lightBoxShader.setMat4("view", view);
+    lightBoxShader.setMat4("view", camera.get_view_matrix());
     for (unsigned int i = 0; i < lightPositions.size(); i++)
     {
       model = glm::mat4(1.0f);
       model = glm::translate(model, lightPositions[i]);
       model = glm::scale(model, glm::vec3(0.125f));
+
       lightBoxShader.setMat4("model", model);
       lightBoxShader.setVec3("lightColor", lightColors[i]);
       renderCube();
@@ -258,7 +262,11 @@ void process_input(GLFWwindow *window)
   if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
     glfwSetWindowShouldClose(window, true);
   else
+  {
+    glm::vec3 pos = camera.get_pos();
+    std::cout << pos.x << ", " << pos.y << ", " << pos.z << std::endl;
     camera.process_movement(window, 2.5f, deltaTime);
+  }
 }
 
 unsigned int loadTexture(char const *path, bool gammaCorrection)

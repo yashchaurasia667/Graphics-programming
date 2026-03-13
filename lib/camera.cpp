@@ -77,10 +77,7 @@ void Camera::process_movement(GLFWwindow *window, float speed, float deltaTime)
 {
   float cameraSpeed = speed * deltaTime;
   if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-  {
     pos += cameraSpeed * front;
-    // std::cout << "keyboard" << std::endl;
-  }
   if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
     pos -= cameraSpeed * front;
   if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
