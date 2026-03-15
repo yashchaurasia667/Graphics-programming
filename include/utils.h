@@ -1,7 +1,6 @@
 #pragma once
 
 #include <glad/glad.h>
-#include <iostream>
 
 #ifdef _MSC_VER
   #define ASSERT(x) if (!(x)) __debugbreak()
@@ -20,3 +19,6 @@
 
 void GLclearError();
 bool GLlogCall(const char *function, const char *file, int line);
+unsigned int loadTexture(char const *path, bool gammaCorrection);
+void renderQuad();
+void renderCube();

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.21)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-project(deferred_shading LANGUAGES C CXX)
+project(ssao LANGUAGES C CXX)
 find_package(OpenGL REQUIRED)
 
 set(USR_INCLUDE "/usr/local/include/")
