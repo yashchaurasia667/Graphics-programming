@@ -1,3 +1,8 @@
+## Sources
+
+- [GPU Gems](https://developer.nvidia.com/gpugems/gpugems/contributors) 
+- [The book of shaders](https://thebookofshaders.com/)
+
 ## General build guide
 
 <h3>Dependencies</h3>
