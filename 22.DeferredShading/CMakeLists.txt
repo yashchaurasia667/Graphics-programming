@@ -1,56 +1,49 @@
 cmake_minimum_required(VERSION 3.21)
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 project(deferred_shading LANGUAGES C CXX)
+
 find_package(OpenGL REQUIRED)
 
-set(USR_INCLUDE "/usr/local/include/")
-set(USR_SRC     "/usr/local/src")
-set(USR_LIB     "/usr/local/lib")
-set(INCLUDE     "${CMAKE_CURRENT_SOURCE_DIR}/../include")
-set(LIB         "${CMAKE_CURRENT_SOURCE_DIR}/../lib")
-set(SRC         "${CMAKE_CURRENT_SOURCE_DIR}")
+# Setup paths
+set(INC /usr/local/include)
+set(LIB /usr/local/lib)
+set(SRC /usr/local/src)
+set(CODE "${CMAKE_CURRENT_SOURCE_DIR}")
 
-# ---- Library with actual compiled code ----
+file(GLOB IMGUI_SRC "${SRC}/imgui/*.cpp")
+file(GLOB IMGUI_BACKEND_SOURCES "${SRC}/imgui/backends/*.cpp")
+
+file(GLOB_RECURSE LIB_CODE_SRC "${CODE}/*.cpp")
+list(REMOVE_ITEM LIB_CODE_SRC "${CODE}/main.cpp")
+
+file(GLOB_RECURSE USR_DEP "${SRC}/custom/*.cpp")
+
 add_library(depends STATIC
-  "${USR_SRC}/glad.c"
-  "${LIB}/shader.cpp"
-  "${LIB}/vertexBuffer.cpp"
-  "${LIB}/vertexBufferLayout.cpp"
-  "${LIB}/indexBuffer.cpp"
-  "${LIB}/vertexArray.cpp"
-  "${LIB}/camera.cpp"
-  "${LIB}/texture.cpp"
-  "${LIB}/utils.cpp"
-  "${LIB}/mesh.cpp"
-  "${LIB}/model.cpp"
+    "${SRC}/glad.c"
+    ${USR_DEP}
+    ${LIB_CODE_SRC}
+    ${IMGUI_SRC}
+    ${IMGUI_BACKEND_SOURCES}
 )
-target_include_directories(depends
-  PUBLIC
-  "${USR_INCLUDE}"
-  "${INCLUDE}"
+
+# 3. Setup includes (Folders only)
+target_include_directories(depends PUBLIC 
+    ${CODE}
+    ${INC}
+    "${INC}/imgui"
+    "${INC}/imgui/backends"
+    "${INC}/custom"
 )
-target_compile_options(depends
-  PRIVATE
-  -Wall
-  -g
+
+target_compile_options(depends PRIVATE -Wall -Wextra -g)
+
+# 4. Link dependencies
+target_link_libraries(depends PUBLIC 
+    OpenGL::GL
+    "${LIB}/libglfw3.a"
+    minizip z pthread
+    X11 Xrandr Xi
 )
-target_link_libraries(depends
-  PUBLIC
-  OpenGL::GL
-  "${USR_LIB}/libglfw3.a"
-  "${USR_LIB}/libassimp.a"
-  minizip dl z pthread
-  X11 Xrandr Xi
-)
-# ---- Executable ----
-add_executable(
-  ${PROJECT_NAME}
-  "${SRC}/main.cpp"
-)
-target_link_libraries(
-  ${PROJECT_NAME}
-  PRIVATE
-  depends
-)
+
+# 5. Final Executable
+add_executable(${PROJECT_NAME} "${CODE}/main.cpp")
+target_link_libraries(${PROJECT_NAME} PRIVATE depends)
