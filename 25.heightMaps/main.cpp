@@ -107,6 +107,7 @@ int main()
     vao.addBuffer(vbo, layout);
 
     glClearColor(0.4, 0.4, 0.4, 0.4);
+    std::cout << "Renderer: " << glGetString(GL_RENDERER) << std::endl;
     while (!glfwWindowShouldClose(window))
     {
       glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
