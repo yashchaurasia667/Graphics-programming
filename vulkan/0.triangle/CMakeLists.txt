@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# EXTERNAL LIBRARIES
 find_package(Vulkan REQUIRED)
 find_package(SDL3 REQUIRED)
 find_package(volk CONFIG REQUIRED)
@@ -12,8 +13,8 @@ find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(tinyobjloader REQUIRED)
 
-find_library(Slang_LIBRARY 
-  NAMES slang slang-compiler 
+find_library(Slang_LIBRARY
+  NAMES slang slang-compiler
   HINTS /usr/include
   REQUIRED
 )
@@ -30,7 +31,9 @@ endif()
 add_library(ktx STATIC ${KTX_SOURCES})
 target_compile_features(ktx PRIVATE c_std_99)
 
-add_executable(${PROJECT_NAME} src/main.cpp)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "src/")
+file(GLOB_RECURSE SOURCES "src/*.cpp")
+add_executable(${PROJECT_NAME} ${SOURCES})
 target_link_libraries(${PROJECT_NAME} PRIVATE
   Vulkan::Vulkan
   SDL3::SDL3
