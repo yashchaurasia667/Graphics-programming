@@ -1,9 +1,8 @@
-#include "engine.hpp"
-#include <SDL3/SDL_vulkan.h>
-#include <vulkan/vulkan_core.h>
-
 #define VOLK_IMPLEMENTATION
 #define VULKAN_NO_HPP_STRUCT_CONSTRUCTORS
+#define VMA_IMPLEMENTATION
+
+#include "engine.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -43,6 +42,18 @@ bool Engine::initVulkan() {
     return false;
   }
   std::cout << "picked a physical device" << std::endl;
+  if (!createDevice(physicalDevice)) {
+    return false;
+  }
+  std::cout << "created a logical device" << std::endl;
+  if (!initializeVMA()) {
+    return false;
+  }
+  std::cout << "initialized vma" << std::endl;
+  if (swapchain = createSwapchain(WIDTH, HEIGHT); !swapchain) {
+    return false;
+  }
+  std::cout << "created swapchain" << std::endl;
 
   return true;
 }
@@ -133,6 +144,8 @@ VkPhysicalDevice Engine::pickPhysicalDevice() {
   std::vector<VkPhysicalDevice> devices(devCount);
   vkEnumeratePhysicalDevices(instance, &devCount, devices.data());
 
+  VkPhysicalDevice physicalDev = devices[0];
+
   for (auto &dev : devices) {
 
     uint32_t extCount = 0;
@@ -179,11 +192,209 @@ VkPhysicalDevice Engine::pickPhysicalDevice() {
         }
         // prefer queue familes that have graphics and presenet
         if (hasGfxQueue && hasPresentQueue) {
-          return dev;
+          VkPhysicalDeviceProperties devProperties;
+          vkGetPhysicalDeviceProperties(dev, &devProperties);
+
+          if (devProperties.deviceType ==
+              VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+            std::cout << "Selected discrete GPU: " << devProperties.deviceName
+                      << std::endl;
+            return dev;
+          }
         }
       }
     }
   }
-  return nullptr;
+  return physicalDevice;
 }
 
+bool Engine::createDevice(VkPhysicalDevice physicalDevice) {
+  float queuePriority = 1.0f;
+  std::vector<uint32_t> queueFamilies{gfxQueueFamIdx};
+
+  std::vector<VkDeviceQueueCreateInfo> queueCreateInfo{VkDeviceQueueCreateInfo{
+      .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+      .queueFamilyIndex = gfxQueueFamIdx,
+      .queueCount = 1,
+      .pQueuePriorities = &queuePriority}};
+
+  if (gfxQueueFamIdx != presentQueueFamIdx) {
+    queueCreateInfo.push_back(VkDeviceQueueCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+        .queueFamilyIndex = presentQueueFamIdx,
+        .queueCount = 1,
+        .pQueuePriorities = &queuePriority});
+  }
+
+  //
+  VkPhysicalDeviceVulkan13Features supportedFeatures13{
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
+      .pNext = nullptr};
+  VkPhysicalDeviceVulkan12Features supportedFeatures12{
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+      .pNext = &supportedFeatures13};
+  VkPhysicalDeviceFeatures2 supportedFeatures10{
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+      .pNext = &supportedFeatures12};
+  vkGetPhysicalDeviceFeatures2(physicalDevice, &supportedFeatures10);
+
+  if (!supportedFeatures13.dynamicRendering ||
+      !supportedFeatures13.synchronization2 ||
+      !supportedFeatures12.timelineSemaphore) {
+    showError("Physical devices does not meet the feature requirement");
+    return false;
+  }
+
+  VkPhysicalDeviceVulkan13Features features13{
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
+      .pNext = nullptr};
+  VkPhysicalDeviceVulkan12Features features12{
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+      .pNext = &features13};
+  VkPhysicalDeviceFeatures2 features10{
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+      .pNext = &features12};
+
+  const std::vector<const char *> deviceExtensions{
+      VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+  VkDeviceCreateInfo devCreateInfo{
+      .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+      .pNext = &features10,
+      .queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfo.size()),
+      .pQueueCreateInfos = queueCreateInfo.data(),
+      .enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size()),
+      .ppEnabledExtensionNames = deviceExtensions.data(),
+      .pEnabledFeatures = nullptr};
+
+  if (vkCreateDevice(physicalDevice, &devCreateInfo, nullptr, &device) !=
+      VK_SUCCESS) {
+    return false;
+  }
+
+  vkGetDeviceQueue(device, gfxQueueFamIdx, 0, &gfxQueue);
+  if (!gfxQueue) {
+    showError("Couldn't get the graphics queue");
+    return false;
+  }
+  presentQueue = gfxQueue;
+
+  if (gfxQueueFamIdx != presentQueueFamIdx) {
+    vkGetDeviceQueue(device, presentQueueFamIdx, 0, &presentQueue);
+    if (!presentQueue) {
+      showError("Couldn't get the present queue");
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool Engine::initializeVMA() {
+  VmaVulkanFunctions vmaFuncInfo{};
+  VmaAllocatorCreateInfo vmaAllocInfo{
+      .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
+      .physicalDevice = physicalDevice,
+      .device = device,
+      .pVulkanFunctions = &vmaFuncInfo,
+      .instance = instance,
+      .vulkanApiVersion = vk::ApiVersion13};
+
+  vmaImportVulkanFunctionsFromVolk(&vmaAllocInfo, &vmaFuncInfo);
+  if (vmaCreateAllocator(&vmaAllocInfo, &vmaAllocator) != VK_SUCCESS) {
+    return false;
+  }
+  return true;
+}
+
+VkSwapchainKHR Engine::createSwapchain(uint32_t width, uint32_t height) {
+  VkSurfaceCapabilitiesKHR surfaceCaps{};
+  if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface,
+                                                &surfaceCaps) != VK_SUCCESS) {
+    showError("Couldn't get the surface capabilities");
+    return nullptr;
+  }
+
+  VkSwapchainCreateInfoKHR swapchainCreateInfo{
+      .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+      .surface = surface,
+      .minImageCount = surfaceCaps.minImageCount,
+      .imageFormat = swapchainFormat,
+      .imageColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR,
+      .imageExtent{.width = width, .height = height},
+      .imageArrayLayers = 1,
+      .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+      .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
+      .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+      .presentMode = VK_PRESENT_MODE_FIFO_KHR};
+
+  VkSwapchainKHR swapchainLocal = nullptr;
+  if (vkCreateSwapchainKHR(device, &swapchainCreateInfo, nullptr,
+                           &swapchainLocal) != VK_SUCCESS) {
+    showError("Failed to create swapchain");
+    return nullptr;
+  }
+
+  uint32_t imageCount = 0;
+  vkGetSwapchainImagesKHR(device, swapchainLocal, &imageCount, nullptr);
+  swapchainImages.resize(imageCount);
+  vkGetSwapchainImagesKHR(device, swapchainLocal, &imageCount,
+                          swapchainImages.data());
+  swapchainImageViews.resize(imageCount);
+
+  for (int i = 0; i < imageCount; i++) {
+    VkImageViewCreateInfo imgViewInfo{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = swapchainImages[i],
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = swapchainFormat,
+        .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                          .levelCount = 1,
+                          .layerCount = 1}};
+
+    if (vkCreateImageView(device, &imgViewInfo, nullptr,
+                          &swapchainImageViews[i]) != VK_SUCCESS) {
+      showError("Error creating swapchain image view");
+      return nullptr;
+    }
+  }
+
+  VkImageCreateInfo depthCreateInfo{
+      .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+      .imageType = VK_IMAGE_TYPE_2D,
+      .format = depthFormat,
+      .extent{.width = width, .height = height, .depth = 1},
+      .mipLevels = 1,
+      .arrayLayers = 1,
+      .samples = VK_SAMPLE_COUNT_1_BIT,
+      .tiling = VK_IMAGE_TILING_OPTIMAL,
+      .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+      .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED};
+
+  VmaAllocationCreateInfo allocInfo{
+      .flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
+      .usage = VMA_MEMORY_USAGE_AUTO};
+  VkImageCreateInfo imageCreateInfo{};
+  if (vmaCreateImage(vmaAllocator, &depthCreateInfo, &allocInfo, &depthImage,
+                     &depthImageAllocation, nullptr) != VK_SUCCESS) {
+    showError("Error allocating depth image");
+    return nullptr;
+  }
+
+  VkImageViewCreateInfo depthImageViewInfo{
+      .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+      .image = depthImage,
+      .viewType = VK_IMAGE_VIEW_TYPE_2D,
+      .format = depthFormat,
+      .subresourceRange{
+          .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+          .levelCount = 1,
+          .layerCount = 1,
+      }};
+  if (vkCreateImageView(device, &depthImageViewInfo, nullptr,
+                        &depthImageView) != VK_SUCCESS) {
+    showError("Error creating depth image view");
+    return nullptr;
+  }
+
+  return swapchainLocal;
+}
