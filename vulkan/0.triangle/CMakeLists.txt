@@ -19,6 +19,11 @@ find_library(Slang_LIBRARY
   REQUIRED
 )
 
+find_library(SHADERC_LIBRARY 
+  NAMES shaderc_shared
+  HINTS /usr/include
+)
+
 set(KTX_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/ktx")
 include_directories("${KTX_DIR}/include")
 include_directories("${KTX_DIR}/other_include")
@@ -42,6 +47,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   glm::glm
   tinyobjloader::tinyobjloader
   ${Slang_LIBRARY}
+  ${SHADERC_LIBRARY}
   ktx
 )
 

@@ -1,3 +1,4 @@
+#include <vulkan/vulkan_core.h>
 #define VOLK_IMPLEMENTATION
 #define VULKAN_NO_HPP_STRUCT_CONSTRUCTORS
 #define VMA_IMPLEMENTATION
@@ -6,11 +7,25 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <cstring>
 #include <iostream>
 #include <vector>
 
+#include <cstring>
+#include <fstream>
+#include <sstream>
+
 void showError(const char *err) { std::cerr << err << std::endl; }
+std::string readTextFile(const std::string &filepath) {
+  std::ifstream infile(filepath);
+  if (infile.is_open()) {
+    std::stringstream buffer;
+    buffer << infile.rdbuf();
+    const std::string output = buffer.str();
+    infile.close();
+    return output;
+  }
+  return std::string();
+}
 
 bool Engine::initialize() {
   SDL_InitSubSystem(SDL_INIT_VIDEO);
@@ -54,11 +69,30 @@ bool Engine::initVulkan() {
     return false;
   }
   std::cout << "created swapchain" << std::endl;
+  if (!createShaders()) {
+    return false;
+  }
+  std::cout << "Created vertex and fragment shaders" << std::endl;
+  if (pipeline = createGraphicsPipeline(); !pipeline.handle) {
+    return false;
+  }
+  std::cout << "Created graphics pipeline" << std::endl;
 
   return true;
 }
 
-void Engine::run() {}
+void Engine::run() {
+  running = true;
+  while (running) {
+    SDL_Event event{0};
+    while (SDL_PollEvent(&event)) {
+      if (event.type == SDL_EVENT_QUIT) {
+        running = false;
+      }
+    }
+    // render();
+  }
+}
 
 void Engine::shutdown() {}
 
@@ -132,7 +166,6 @@ VkSurfaceKHR Engine::createSurface() const {
   SDL_Vulkan_CreateSurface(window, instance, nullptr, &surface);
   return surface;
 }
-
 VkPhysicalDevice Engine::pickPhysicalDevice() {
   uint32_t devCount = 0;
   vkEnumeratePhysicalDevices(instance, &devCount, nullptr);
@@ -247,7 +280,8 @@ bool Engine::createDevice(VkPhysicalDevice physicalDevice) {
 
   VkPhysicalDeviceVulkan13Features features13{
       .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
-      .pNext = nullptr};
+      .pNext = nullptr,
+      .dynamicRendering = VK_TRUE};
   VkPhysicalDeviceVulkan12Features features12{
       .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
       .pNext = &features13};
@@ -257,6 +291,7 @@ bool Engine::createDevice(VkPhysicalDevice physicalDevice) {
 
   const std::vector<const char *> deviceExtensions{
       VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+
   VkDeviceCreateInfo devCreateInfo{
       .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
       .pNext = &features10,
@@ -397,4 +432,171 @@ VkSwapchainKHR Engine::createSwapchain(uint32_t width, uint32_t height) {
   }
 
   return swapchainLocal;
+}
+
+VkShaderModule Engine::createShaderModule(const std::string &filename,
+                                          shaderc_shader_kind kind) const {
+  const std::string shaderSrc = "shaders/" + filename;
+  const std::string src = readTextFile(shaderSrc);
+  if (src.empty()) {
+    std::cerr << "Failed to read file: " << shaderSrc << std::endl;
+    return nullptr;
+  }
+
+  shaderc::Compiler compiler;
+  shaderc::CompileOptions opts;
+  opts.SetTargetEnvironment(shaderc_target_env_vulkan,
+                            shaderc_env_version_vulkan_1_3);
+  opts.SetTargetSpirv(shaderc_spirv_version_1_6);
+  opts.SetOptimizationLevel(shaderc_optimization_level_performance);
+  shaderc::CompilationResult result =
+      compiler.CompileGlslToSpv(src, kind, filename.c_str(), opts);
+
+  if (result.GetCompilationStatus() != shaderc_compilation_status_success) {
+    std::cerr << "Shader compilation error: " << result.GetErrorMessage()
+              << std::endl;
+    return nullptr;
+  }
+
+  std::vector<uint32_t> spv = {result.cbegin(), result.cend()};
+  VkShaderModuleCreateInfo moduleCreateInfo{
+      .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+      .codeSize = spv.size() * sizeof(uint32_t),
+      .pCode = spv.data()};
+  VkShaderModule module = nullptr;
+  if (vkCreateShaderModule(device, &moduleCreateInfo, nullptr, &module) !=
+      VK_SUCCESS) {
+    showError("Failed to create shader module");
+    return nullptr;
+  }
+  return module;
+}
+
+bool Engine::createShaders() {
+  if (vertexShader = createShaderModule("shader.vert", shaderc_vertex_shader);
+      !vertexShader) {
+    showError("Failed to create vertex shader");
+    return false;
+  }
+  if (fragmentShader =
+          createShaderModule("shader.frag", shaderc_fragment_shader);
+      !fragmentShader) {
+    showError("Failed to create fragment shader");
+    return false;
+  }
+  return true;
+}
+
+Pipeline Engine::createGraphicsPipeline() const {
+  const char *entryPoint = "main";
+  std::vector<VkPipelineShaderStageCreateInfo> shaderStage{
+      {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+       .stage = VK_SHADER_STAGE_VERTEX_BIT,
+       .module = vertexShader,
+       .pName = entryPoint},
+      {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+       .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+       .module = fragmentShader,
+       .pName = entryPoint}};
+
+  VkPipelineVertexInputStateCreateInfo vertexInputInfo{
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+  VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo{
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+      .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+      .primitiveRestartEnable = VK_FALSE};
+
+  VkPipelineDepthStencilStateCreateInfo depthStencilInfo{
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+      .depthTestEnable = VK_TRUE,
+      .depthWriteEnable = VK_TRUE,
+      .depthCompareOp = VK_COMPARE_OP_LESS,
+      .stencilTestEnable = VK_FALSE};
+  VkPipelineViewportStateCreateInfo viewportInfo{
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+      .viewportCount = 1,
+      .pViewports = nullptr,
+      .scissorCount = 1,
+      .pScissors = nullptr};
+
+  VkPipelineRasterizationStateCreateInfo rasterInfo{
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+      .polygonMode = VK_POLYGON_MODE_FILL,
+      .cullMode = VK_CULL_MODE_BACK_BIT,
+      .frontFace = VK_FRONT_FACE_CLOCKWISE,
+      .lineWidth = 1.0f};
+
+  VkPipelineMultisampleStateCreateInfo multiSampleInfo{
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+      .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT};
+
+  VkPipelineColorBlendAttachmentState attachState{
+      .blendEnable = VK_FALSE,
+      .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                        VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT};
+  VkPipelineColorBlendStateCreateInfo blendInfo{
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+      .attachmentCount = 1,
+      .pAttachments = &attachState};
+
+  std::vector<VkDynamicState> dynamicState{VK_DYNAMIC_STATE_VIEWPORT,
+                                           VK_DYNAMIC_STATE_SCISSOR};
+  VkPipelineDynamicStateCreateInfo dynamicStateInfo{
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+      .dynamicStateCount = static_cast<uint32_t>(dynamicState.size()),
+      .pDynamicStates = dynamicState.data()};
+  VkPipelineRenderingCreateInfo renderInfo{
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+      .colorAttachmentCount = 1,
+      .pColorAttachmentFormats = &swapchainFormat,
+      .depthAttachmentFormat = depthFormat};
+
+  Pipeline pipeline;
+  VkPipelineLayoutCreateInfo pipelineLayoutInfo{
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+      .setLayoutCount = 0,
+      .pushConstantRangeCount = 0};
+  if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr,
+                             &pipeline.layout) != VK_SUCCESS) {
+    showError("Failed to create graphics pipleline layout");
+    return Pipeline{};
+  }
+
+  VkGraphicsPipelineCreateInfo pipelineInfo{
+      .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+      .pNext = &renderInfo,
+      .stageCount = static_cast<uint32_t>(shaderStage.size()),
+      .pStages = shaderStage.data(),
+      .pVertexInputState = &vertexInputInfo,
+      .pInputAssemblyState = &inputAssemblyInfo,
+      .pViewportState = &viewportInfo,
+      .pRasterizationState = &rasterInfo,
+      .pMultisampleState = &multiSampleInfo,
+      .pDepthStencilState = &depthStencilInfo,
+      .pColorBlendState = &blendInfo,
+      .pDynamicState = &dynamicStateInfo,
+      .layout = pipeline.layout,
+      .renderPass = VK_NULL_HANDLE};
+  if (vkCreateGraphicsPipelines(device, nullptr, 1, &pipelineInfo, nullptr,
+                                &pipeline.handle) != VK_SUCCESS) {
+    showError("Failed to create a pipleline");
+    return Pipeline{};
+  }
+  return pipeline;
+}
+
+bool Engine::createSyncResources() {
+  VkSemaphoreTypeCreateInfo semaphoreTypeInfo{
+      .sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
+      .semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE,
+      .initialValue = timelineValue};
+  VkSemaphoreCreateInfo semaphoreInfo{
+      .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+      .pNext = &semaphoreTypeInfo};
+  if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &timelineSemaphore) !=
+      VK_SUCCESS) {
+    showError("Failed to create timeline semaphore");
+    return false;
+  }
+  return true;
 }
