@@ -56,10 +56,7 @@ void Engine::run() {
   }
 }
 
-void Engine::shutdown() {
-  vkDeviceWaitIdle(device);
-  // for(VkSemaphore semaphore: imageA)
-}
+void Engine::shutdown() { vkDeviceWaitIdle(device); }
 
 bool Engine::initVulkan() {
   if (instance = createVulkanInstance(); !instance) {
@@ -176,6 +173,7 @@ VkSurfaceKHR Engine::createSurface() const {
   SDL_Vulkan_CreateSurface(window, instance, nullptr, &surface);
   return surface;
 }
+
 VkPhysicalDevice Engine::pickPhysicalDevice() {
   uint32_t devCount = 0;
   vkEnumeratePhysicalDevices(instance, &devCount, nullptr);
@@ -233,7 +231,7 @@ VkPhysicalDevice Engine::pickPhysicalDevice() {
             hasPresentQueue = true;
           }
         }
-        // prefer queue familes that have graphics and presenet
+        // prefer queue families that have graphics and present
         if (hasGfxQueue && hasPresentQueue) {
           VkPhysicalDeviceProperties devProperties;
           vkGetPhysicalDeviceProperties(dev, &devProperties);
@@ -248,12 +246,11 @@ VkPhysicalDevice Engine::pickPhysicalDevice() {
       }
     }
   }
-  return physicalDevice;
+  return physicalDev;
 }
 
 bool Engine::createDevice(VkPhysicalDevice physicalDevice) {
   float queuePriority = 1.0f;
-  std::vector<uint32_t> queueFamilies{gfxQueueFamIdx};
 
   std::vector<VkDeviceQueueCreateInfo> queueCreateInfo{VkDeviceQueueCreateInfo{
       .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -269,7 +266,6 @@ bool Engine::createDevice(VkPhysicalDevice physicalDevice) {
         .pQueuePriorities = &queuePriority});
   }
 
-  //
   VkPhysicalDeviceVulkan13Features supportedFeatures13{
       .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
       .pNext = nullptr};
@@ -291,6 +287,7 @@ bool Engine::createDevice(VkPhysicalDevice physicalDevice) {
   VkPhysicalDeviceVulkan13Features features13{
       .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
       .pNext = nullptr,
+      .synchronization2 = VK_TRUE, // <-- was missing
       .dynamicRendering = VK_TRUE};
   VkPhysicalDeviceVulkan12Features features12{
       .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
@@ -387,7 +384,7 @@ VkSwapchainKHR Engine::createSwapchain(uint32_t width, uint32_t height) {
                           swapchainImages.data());
   swapchainImageViews.resize(imageCount);
 
-  for (int i = 0; i < imageCount; i++) {
+  for (uint32_t i = 0; i < imageCount; i++) {
     VkImageViewCreateInfo imgViewInfo{
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .image = swapchainImages[i],
@@ -419,7 +416,6 @@ VkSwapchainKHR Engine::createSwapchain(uint32_t width, uint32_t height) {
   VmaAllocationCreateInfo allocInfo{
       .flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
       .usage = VMA_MEMORY_USAGE_AUTO};
-  VkImageCreateInfo imageCreateInfo{};
   if (vmaCreateImage(vmaAllocator, &depthCreateInfo, &allocInfo, &depthImage,
                      &depthImageAllocation, nullptr) != VK_SUCCESS) {
     showError("Error allocating depth image");
@@ -569,7 +565,7 @@ Pipeline Engine::createGraphicsPipeline() const {
       .pushConstantRangeCount = 0};
   if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr,
                              &pipeline.layout) != VK_SUCCESS) {
-    showError("Failed to create graphics pipleline layout");
+    showError("Failed to create graphics pipeline layout");
     return Pipeline{};
   }
 
@@ -590,13 +586,24 @@ Pipeline Engine::createGraphicsPipeline() const {
       .renderPass = VK_NULL_HANDLE};
   if (vkCreateGraphicsPipelines(device, nullptr, 1, &pipelineInfo, nullptr,
                                 &pipeline.handle) != VK_SUCCESS) {
-    showError("Failed to create a pipleline");
+    showError("Failed to create a pipeline");
     return Pipeline{};
   }
   return pipeline;
 }
 
 bool Engine::createSyncResources() {
+  // FIX 1: create imageAcquireSemaphores (was missing entirely)
+  imageAcquireSemaphores.resize(MaxFramesInFlight);
+  for (VkSemaphore &sem : imageAcquireSemaphores) {
+    VkSemaphoreCreateInfo semInfo{.sType =
+                                      VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+    if (vkCreateSemaphore(device, &semInfo, nullptr, &sem) != VK_SUCCESS) {
+      showError("Failed to create image acquire semaphore");
+      return false;
+    }
+  }
+
   VkSemaphoreTypeCreateInfo semaphoreTypeInfo{
       .sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
       .semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE,
@@ -611,9 +618,9 @@ bool Engine::createSyncResources() {
   }
 
   for (FrameResources &res : frameResources) {
-    VkSemaphoreCreateInfo semaphoreInfo{
+    VkSemaphoreCreateInfo binarySemInfo{
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-    if (vkCreateSemaphore(device, &semaphoreInfo, nullptr,
+    if (vkCreateSemaphore(device, &binarySemInfo, nullptr,
                           &res.workCompleteSemaphore) != VK_SUCCESS) {
       showError("Error creating per frame render complete semaphore");
       return false;
@@ -639,16 +646,28 @@ bool Engine::createCommandBuffers() {
         .commandPool = res.commandPool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandBufferCount = 1};
+
+    // FIX 2: actually allocate the command buffer (was missing the call)
+    if (vkAllocateCommandBuffers(device, &cmdAllocInfo, &res.commandBuffer) !=
+        VK_SUCCESS) {
+      showError("Failed to allocate command buffer");
+      return false;
+    }
   }
   return true;
 }
 
 void Engine::render() {
   uint64_t frameId = ++timelineValue;
-  uint64_t waitForId = frameId - MaxFramesInFlight;
+
+  // FIX 3: guard against uint64_t underflow on the first MaxFramesInFlight
+  // frames
+  uint64_t waitForId = (frameId > static_cast<uint64_t>(MaxFramesInFlight))
+                           ? frameId - static_cast<uint64_t>(MaxFramesInFlight)
+                           : 0;
 
   VkSemaphore imageAcquireSemaphore =
-      imageAcquireSemaphores[waitForId % imageAcquireSemaphores.size()];
+      imageAcquireSemaphores[frameId % imageAcquireSemaphores.size()];
   size_t frameResourceIndex = frameId % MaxFramesInFlight;
   FrameResources &res = frameResources[frameResourceIndex];
 
@@ -669,6 +688,7 @@ void Engine::render() {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
     vkBeginCommandBuffer(res.commandBuffer, &cmdBeginInfo);
+
     std::vector<VkImageMemoryBarrier2> layoutBarriers{
         {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
          .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -688,12 +708,8 @@ void Engine::render() {
         {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
          .srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
          .srcAccessMask = 0,
-         .dstStageMask =
-             VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
-             VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT, // both specified to
-                                                          // control memory
-                                                          // access at both
-                                                          // stages (write)
+         .dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
+                         VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
          .dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
          .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
          .newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
@@ -777,14 +793,11 @@ void Engine::render() {
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
         .semaphore = imageAcquireSemaphore,
         .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT};
-    // signal that the image can be presented
     std::vector<VkSemaphoreSubmitInfo> semaphoreSignals{
-        {// render work completion signal
-         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+        {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
          .semaphore = res.workCompleteSemaphore,
          .stageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT},
-        {// entire frame is completed (timeline)
-         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+        {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
          .semaphore = timelineSemaphore,
          .value = frameId,
          .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT}};
@@ -809,7 +822,6 @@ void Engine::render() {
                                  .pSwapchains = &swapchain,
                                  .pImageIndices = &imageIndex,
                                  .pResults = nullptr};
-
     vkQueuePresentKHR(gfxQueue, &presentInfo);
   }
 }
