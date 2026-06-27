@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <volk/volk.h>
 #include <vulkan/vulkan.hpp>
 
@@ -15,6 +16,11 @@
 struct Pipeline {
   VkPipelineLayout layout = nullptr;
   VkPipeline handle = nullptr;
+};
+struct FrameResources {
+  VkCommandPool commandPool = nullptr;
+  VkCommandBuffer commandBuffer = nullptr;
+  VkSemaphore workCompleteSemaphore = nullptr;
 };
 
 class Engine {
@@ -52,6 +58,7 @@ private:
   VkSwapchainKHR swapchain = nullptr;
   std::vector<VkImage> swapchainImages;
   std::vector<VkImageView> swapchainImageViews;
+  std::vector<VkSemaphore> imageAcquireSemaphores;
 
   VkImage depthImage = nullptr;
   VmaAllocation depthImageAllocation = nullptr;
@@ -59,6 +66,7 @@ private:
 
   Pipeline pipeline;
   VkSemaphore timelineSemaphore = nullptr;
+  std::array<FrameResources, MaxFramesInFlight> frameResources;
 
   bool initVulkan();
   VkInstance createVulkanInstance();
@@ -72,4 +80,7 @@ private:
   bool createShaders();
   Pipeline createGraphicsPipeline() const;
   bool createSyncResources();
+  bool createCommandBuffers();
+  void render();
 };
+

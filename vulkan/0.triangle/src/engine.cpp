@@ -1,4 +1,3 @@
-#include <vulkan/vulkan_core.h>
 #define VOLK_IMPLEMENTATION
 #define VULKAN_NO_HPP_STRUCT_CONSTRUCTORS
 #define VMA_IMPLEMENTATION
@@ -44,6 +43,24 @@ bool Engine::initialize() {
   return true;
 }
 
+void Engine::run() {
+  running = true;
+  while (running) {
+    SDL_Event event{0};
+    while (SDL_PollEvent(&event)) {
+      if (event.type == SDL_EVENT_QUIT) {
+        running = false;
+      }
+    }
+    render();
+  }
+}
+
+void Engine::shutdown() {
+  vkDeviceWaitIdle(device);
+  // for(VkSemaphore semaphore: imageA)
+}
+
 bool Engine::initVulkan() {
   if (instance = createVulkanInstance(); !instance) {
     return false;
@@ -77,24 +94,17 @@ bool Engine::initVulkan() {
     return false;
   }
   std::cout << "Created graphics pipeline" << std::endl;
+  if (!createSyncResources()) {
+    return false;
+  }
+  std::cout << "created sync resources" << std::endl;
+  if (!createCommandBuffers()) {
+    return false;
+  }
+  std::cout << "Command buffer created" << std::endl;
 
   return true;
 }
-
-void Engine::run() {
-  running = true;
-  while (running) {
-    SDL_Event event{0};
-    while (SDL_PollEvent(&event)) {
-      if (event.type == SDL_EVENT_QUIT) {
-        running = false;
-      }
-    }
-    // render();
-  }
-}
-
-void Engine::shutdown() {}
 
 // UTILITY FUNCTIONS
 VkInstance Engine::createVulkanInstance() {
@@ -284,7 +294,8 @@ bool Engine::createDevice(VkPhysicalDevice physicalDevice) {
       .dynamicRendering = VK_TRUE};
   VkPhysicalDeviceVulkan12Features features12{
       .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-      .pNext = &features13};
+      .pNext = &features13,
+      .timelineSemaphore = VK_TRUE};
   VkPhysicalDeviceFeatures2 features10{
       .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
       .pNext = &features12};
@@ -598,5 +609,207 @@ bool Engine::createSyncResources() {
     showError("Failed to create timeline semaphore");
     return false;
   }
+
+  for (FrameResources &res : frameResources) {
+    VkSemaphoreCreateInfo semaphoreInfo{
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+    if (vkCreateSemaphore(device, &semaphoreInfo, nullptr,
+                          &res.workCompleteSemaphore) != VK_SUCCESS) {
+      showError("Error creating per frame render complete semaphore");
+      return false;
+    }
+  }
+
   return true;
+}
+
+bool Engine::createCommandBuffers() {
+  for (FrameResources &res : frameResources) {
+    VkCommandPoolCreateInfo poolInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .queueFamilyIndex = gfxQueueFamIdx};
+    if (vkCreateCommandPool(device, &poolInfo, nullptr, &res.commandPool) !=
+        VK_SUCCESS) {
+      showError("Unable to create command buffer pool");
+      return false;
+    }
+
+    VkCommandBufferAllocateInfo cmdAllocInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = res.commandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1};
+  }
+  return true;
+}
+
+void Engine::render() {
+  uint64_t frameId = ++timelineValue;
+  uint64_t waitForId = frameId - MaxFramesInFlight;
+
+  VkSemaphore imageAcquireSemaphore =
+      imageAcquireSemaphores[waitForId % imageAcquireSemaphores.size()];
+  size_t frameResourceIndex = frameId % MaxFramesInFlight;
+  FrameResources &res = frameResources[frameResourceIndex];
+
+  uint32_t imageIndex = 0;
+  VkResult acquireResult =
+      vkAcquireNextImageKHR(device, swapchain, UINT64_MAX,
+                            imageAcquireSemaphore, VK_NULL_HANDLE, &imageIndex);
+
+  if (acquireResult == VK_SUCCESS) {
+    VkSemaphoreWaitInfo waitInfo{.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
+                                 .semaphoreCount = 1,
+                                 .pSemaphores = &timelineSemaphore,
+                                 .pValues = &waitForId};
+    vkWaitSemaphores(device, &waitInfo, UINT64_MAX);
+    vkResetCommandPool(device, res.commandPool, 0);
+
+    VkCommandBufferBeginInfo cmdBeginInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
+    vkBeginCommandBuffer(res.commandBuffer, &cmdBeginInfo);
+    std::vector<VkImageMemoryBarrier2> layoutBarriers{
+        {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+         .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+         .srcAccessMask = 0,
+         .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+         .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+         .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+         .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+         .image = swapchainImages[imageIndex],
+         .subresourceRange{
+             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+             .baseMipLevel = 0,
+             .levelCount = 1,
+             .baseArrayLayer = 0,
+             .layerCount = 1,
+         }},
+        {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+         .srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+         .srcAccessMask = 0,
+         .dstStageMask =
+             VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
+             VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT, // both specified to
+                                                          // control memory
+                                                          // access at both
+                                                          // stages (write)
+         .dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+         .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+         .newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+         .image = depthImage,
+         .subresourceRange{
+             .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+             .baseMipLevel = 0,
+             .levelCount = 1,
+             .baseArrayLayer = 0,
+             .layerCount = 1,
+         }}};
+    VkDependencyInfo depInfo{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+                             .imageMemoryBarrierCount =
+                                 static_cast<uint32_t>(layoutBarriers.size()),
+                             .pImageMemoryBarriers = layoutBarriers.data()};
+    vkCmdPipelineBarrier2(res.commandBuffer, &depInfo);
+
+    VkRenderingAttachmentInfo colorAttachInfo{
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = swapchainImageViews[imageIndex],
+        .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .clearValue{.color{0, 0, 1, 1}}};
+    VkRenderingAttachmentInfo depthAttachInfo{
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = depthImageView,
+        .imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .clearValue{.depthStencil{1.0f, 0}}};
+    VkRenderingInfo renderingInfo{
+        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+        .renderArea{.offset{.x = 0, .y = 0},
+                    .extent{.width = WIDTH, .height = HEIGHT}},
+        .layerCount = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &colorAttachInfo,
+        .pDepthAttachment = &depthAttachInfo};
+    vkCmdBeginRendering(res.commandBuffer, &renderingInfo);
+    vkCmdBindPipeline(res.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                      pipeline.handle);
+
+    VkViewport viewport{.x = 0,
+                        .y = 0,
+                        .width = static_cast<float>(WIDTH),
+                        .height = static_cast<float>(HEIGHT)};
+    vkCmdSetViewport(res.commandBuffer, 0, 1, &viewport);
+    VkRect2D scissor{.offset{.x = 0, .y = 0},
+                     .extent{.width = WIDTH, .height = HEIGHT}};
+    vkCmdSetScissor(res.commandBuffer, 0, 1, &scissor);
+
+    vkCmdDraw(res.commandBuffer, 3, 1, 0, 0);
+    vkCmdEndRendering(res.commandBuffer);
+
+    VkImageMemoryBarrier2 presentLayoutBarrier{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+        .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+        .dstStageMask = VK_PIPELINE_STAGE_2_NONE,
+        .dstAccessMask = 0,
+        .oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        .image = swapchainImages[imageIndex],
+        .subresourceRange{
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        }};
+    VkDependencyInfo presentDepInfo{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+                                    .imageMemoryBarrierCount = 1,
+                                    .pImageMemoryBarriers =
+                                        &presentLayoutBarrier};
+    vkCmdPipelineBarrier2(res.commandBuffer, &presentDepInfo);
+
+    vkEndCommandBuffer(res.commandBuffer);
+
+    VkSemaphoreSubmitInfo imageAcquireWaitInfo{
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+        .semaphore = imageAcquireSemaphore,
+        .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT};
+    // signal that the image can be presented
+    std::vector<VkSemaphoreSubmitInfo> semaphoreSignals{
+        {// render work completion signal
+         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+         .semaphore = res.workCompleteSemaphore,
+         .stageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT},
+        {// entire frame is completed (timeline)
+         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+         .semaphore = timelineSemaphore,
+         .value = frameId,
+         .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT}};
+    VkCommandBufferSubmitInfo cmdSubmitInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+        .commandBuffer = res.commandBuffer,
+    };
+    VkSubmitInfo2 submitInfo{.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+                             .waitSemaphoreInfoCount = 1,
+                             .pWaitSemaphoreInfos = &imageAcquireWaitInfo,
+                             .commandBufferInfoCount = 1,
+                             .pCommandBufferInfos = &cmdSubmitInfo,
+                             .signalSemaphoreInfoCount =
+                                 static_cast<uint32_t>(semaphoreSignals.size()),
+                             .pSignalSemaphoreInfos = semaphoreSignals.data()};
+    vkQueueSubmit2(gfxQueue, 1, &submitInfo, VK_NULL_HANDLE);
+
+    VkPresentInfoKHR presentInfo{.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+                                 .waitSemaphoreCount = 1,
+                                 .pWaitSemaphores = &res.workCompleteSemaphore,
+                                 .swapchainCount = 1,
+                                 .pSwapchains = &swapchain,
+                                 .pImageIndices = &imageIndex,
+                                 .pResults = nullptr};
+
+    vkQueuePresentKHR(gfxQueue, &presentInfo);
+  }
 }
