@@ -11,7 +11,6 @@
 #include <SDL3/SDL_vulkan.h>
 #include <cstdint>
 #include <string>
-#include <vulkan/vulkan_core.h>
 
 struct Pipeline {
   VkPipelineLayout layout = nullptr;
