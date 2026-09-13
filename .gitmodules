@@ -1,0 +1,6 @@
+[submodule "external/glabstractions"]
+	path = external/glabstractions
+	url = https://github.com/yashchaurasia667/gl_abstractions
+[submodule "external/imgui"]
+	path = external/imgui
+	url = https://github.com/ocornut/imgui
