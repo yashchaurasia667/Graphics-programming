@@ -2,6 +2,8 @@
 
 #include <GLFW/glfw3.h>
 #include <glm/ext/matrix_clip_space.hpp>
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/ext/vector_float3.hpp>
 #include <glm/glm.hpp>
 
 #include <stdexcept>
@@ -48,9 +50,9 @@ int main() {
 
     const char *pathStr = "../resources/objects/planet/planet.obj";
     Entity ourEntity(pathStr);
-    ourEntity.transform.pos.x = 10;
     const float scale = 0.75f;
-    ourEntity.transform.scale = {scale, scale, scale};
+    ourEntity.transform.setLocalPosition(glm::vec3(10.0f, 0.0f, 0.0f));
+    ourEntity.transform.setLocalScale(glm::vec3(scale));
 
     {
       Entity *lastEntity = &ourEntity;
@@ -60,8 +62,8 @@ int main() {
         lastEntity = lastEntity->children.back().get();
 
         // Set tranform values
-        lastEntity->transform.pos.x = 10;
-        lastEntity->transform.scale = {scale, scale, scale};
+        lastEntity->transform.setLocalPosition(glm::vec3(10.0f, 0.0f, 0.0f));
+        lastEntity->transform.setLocalScale(glm::vec3(scale));
       }
     }
     ourEntity.updateSelfAndChild();
@@ -88,12 +90,14 @@ int main() {
 
       Entity *lastEntity = &ourEntity;
       while (lastEntity->children.size()) {
-        ourShader.setMat4("model", lastEntity->transform.modelMatrix);
+        ourShader.setMat4("model", lastEntity->transform.getModelMatrix());
         lastEntity->draw(ourShader);
         lastEntity = lastEntity->children.back().get();
       }
 
-      ourEntity.transform.eulerRot.y += 20 * delta_time;
+      glm::vec3 rotation = ourEntity.transform.getLocalRotation() +
+                           glm::vec3(0.0f, 20 * delta_time, 0.0f);
+      ourEntity.transform.setLocalRotation(rotation);
       ourEntity.updateSelfAndChild();
 
       glfwSwapBuffers(window);
