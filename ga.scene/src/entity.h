@@ -1,8 +1,13 @@
 #pragma once
 
+#include <glm/fwd.hpp>
+#include <glm/geometric.hpp>
 #include <list>
 #include <memory>
+
 #include <model.h>
+
+#include <camera.h>
 
 #include <glm/glm.hpp>
 #include <string>
@@ -82,6 +87,87 @@ public:
   bool isDirty() const { return is_dirty; }
 };
 
+struct Plane {
+  glm::vec3 normal = {0.f, 1.f, 0.f};
+  float distance = 0.f;
+  Plane() = default;
+
+  Plane(const glm::vec3 &p1, const glm::vec3 &norm)
+      : normal(glm::normalize(norm)), distance(glm::dot(normal, p1)) {}
+
+  float getSignedDistanceToPlane(const glm::vec3 &point) const {
+    return glm::dot(normal, point) - distance;
+  }
+};
+
+struct Frustum {
+  Plane topFace;
+  Plane bottomFace;
+
+  Plane leftFace;
+  Plane rightFace;
+
+  Plane farFace;
+  Plane nearFace;
+};
+
+struct BoundingVolume {
+  virtual bool isOnFrustum(const Frustum &camFrustum,
+                           const Transform &modelTransform) const = 0;
+  virtual bool isOnorForwardPlane(const Plane &plane) const = 0;
+
+  bool isOnFrustum(const Frustum &camFrustum) const {
+    return (isOnorForwardPlane(camFrustum.leftFace) &&
+            isOnorForwardPlane(camFrustum.rightFace) &&
+            isOnorForwardPlane(camFrustum.topFace) &&
+            isOnorForwardPlane(camFrustum.bottomFace) &&
+            isOnorForwardPlane(camFrustum.nearFace) &&
+            isOnorForwardPlane(camFrustum.farFace));
+  }
+};
+
+struct Sphere : public BoundingVolume {
+  glm::vec3 center{0.f};
+  float radius = 0.f;
+
+  Sphere(const glm::vec3 &inCenter, float inRadius)
+      : BoundingVolume{}, center{inCenter}, radius{inRadius} {}
+
+  bool isOnorForwardPlane(const Plane &plane) const {
+    return plane.getSignedDistanceToPlane(center) > -radius;
+  }
+
+  bool isOnFrustum(const Frustum &camFrustum,
+                   const Transform &transform) const final {
+    const glm::vec3 globalScale = transform.getGlobalScale();
+    const glm::vec3 globalCenter{transform.getModelMatrix() *
+                                 glm::vec4(center, 1.f)};
+    const float maxScale =
+        std::max(std::max(globalScale.x, globalScale.y), globalScale.z);
+
+    Sphere globalSphere(globalCenter, radius * (maxScale * 0.5f));
+    return (globalSphere.isOnorForwardPlane(camFrustum.leftFace) &&
+            globalSphere.isOnorForwardPlane(camFrustum.rightFace) &&
+            globalSphere.isOnorForwardPlane(camFrustum.farFace) &&
+            globalSphere.isOnorForwardPlane(camFrustum.nearFace) &&
+            globalSphere.isOnorForwardPlane(camFrustum.topFace) &&
+            globalSphere.isOnorForwardPlane(camFrustum.bottomFace));
+  }
+};
+
+struct AABB : public BoundingVolume {
+  glm::vec3 center{0.f, 0.f, 0.f};
+  glm::vec3 extents{0.f, 0.f, 0.f};
+
+  AABB(const glm::vec3 &min, const glm::vec3 &max)
+      : BoundingVolume{}, center{(max + min) * 0.5f},
+        extents{max.x - center.x, max.y - center.y, max.z - center.z} {}
+
+  AABB(const glm::vec3 &inCenter, float iI, float iJ, float iK)
+      : BoundingVolume{}, center{inCenter}, extents{iI, iJ, iK} {}
+
+};
+
 class Entity : public Model {
 public:
   std::list<std::unique_ptr<Entity>> children;
@@ -90,6 +176,32 @@ public:
   Transform transform;
 
   Model *pModel = nullptr;
+  Frustum createFrustumFromCamera(Camera &cam, float aspect, float znear,
+                                  float zfar) {
+    Frustum frustum;
+    const float halfVside = zfar * tanf(cam.getFov() * .5f);
+    const float halfHside = halfVside * aspect;
+    const glm::vec3 frontMultFar = zfar * cam.getFront();
+
+    glm::vec3 camPos = cam.getPos();
+    glm::vec3 camFront = cam.getFront();
+    glm::vec3 camUp = cam.getUp();
+
+    glm::vec3 camRight = glm::cross(camFront, camUp);
+
+    frustum.nearFace = {camPos + znear * camFront, camFront};
+    frustum.farFace = {camPos + frontMultFar, -camFront};
+    frustum.rightFace = {
+        camPos, glm::cross(frontMultFar - camRight * halfHside, camUp)};
+    frustum.leftFace = {camPos,
+                        glm::cross(camUp, frontMultFar + camRight * halfHside)};
+    frustum.topFace = {camPos,
+                       glm::cross(camRight, frontMultFar - camUp * halfVside)};
+    frustum.bottomFace = {
+        camPos, glm::cross(frontMultFar + camUp * halfVside, camRight)};
+
+    return frustum;
+  }
 
   Entity(std::string const &path, bool gamma = false)
       : Model(path, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f), gamma) {}
